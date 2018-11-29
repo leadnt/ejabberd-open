@@ -1,1 +1,1 @@
-# ejabberd-open
+ ejabberd-open
