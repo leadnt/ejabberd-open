@@ -10,37 +10,31 @@ parse_presence_message(Pb_message) ->
     ?DEBUG("~p ~n",[Pb_message]),
 	case catch message_pb:decode_presencemessage(Pb_message#protomessage.message) of
  	Presence when is_record(Presence,presencemessage)  ->
-	%	make_presence_message(Presence#presencemessage.key,Presence#presencemessage.value,
-	%				Pb_message#protomessage.from,Pb_message#protomessage.to,Pb_message#protomessage.signaltype,
-	%				Presence#presencemessage.messageid,Presence#presencemessage.body);
         case ejabberd_pb2xml_public:get_presenceKey_type(Presence#presencemessage.definedkey) of
         'none' ->
             make_presence_message(Presence#presencemessage.key,Presence#presencemessage.value,
                 Pb_message#protomessage.from,Pb_message#protomessage.to,message_pb:int_to_enum(signaltype,Pb_message#protomessage.signaltype),
                 Presence#presencemessage.messageid,Presence#presencemessage.body);
-	'PresenceKeyNotify' ->
-		Xml = #xmlel{name = <<"presence">>, 
-			attrs = [
+	   'PresenceKeyNotify' ->
+            Xml = #xmlel{name = <<"presence">>, attrs = [
 				 {<<"from">>, ejabberd_pb2xml_public:list_and_character_to_binary(Pb_message#protomessage.from)},
 				 {<<"to">>, ejabberd_pb2xml_public:list_and_character_to_binary(Pb_message#protomessage.to)},
                                  {<<"category">>, integer_to_binary(Presence#presencemessage.categorytype)},
                                  {<<"data">>, ejabberd_pb2xml_public:list_and_character_to_binary((Presence#presencemessage.body)#messagebody.value)},
                                  {<<"type">>, <<"notify">>}], 
-			children = [#xmlel{name = <<"notify">>, attrs = [{<<"xmlns">>, <<"jabber:x:presence_notify">>}], children = []}]},
-		{xmlstreamelement, Xml};
+                    children = [#xmlel{name = <<"notify">>, attrs = [{<<"xmlns">>, <<"jabber:x:presence_notify">>}], children = []}]},
+            {xmlstreamelement, Xml};
         V ->
-            ?DEBUG("V ~p ~n",[V]),
-            make_presence_message(V,Presence#presencemessage.value,
-                Pb_message#protomessage.from,Pb_message#protomessage.to,Pb_message#protomessage.signaltype,
-             Presence#presencemessage.messageid,Presence#presencemessage.body)
+            make_presence_message(V,
+                Presence#presencemessage.value,
+                Pb_message#protomessage.from,
+                Pb_message#protomessage.to,
+                Pb_message#protomessage.signaltype,
+                Presence#presencemessage.messageid,
+                Presence#presencemessage.body)
         end;
-	A->
-        ?DEBUG("A ~p ~n",[A]),
-		false
+	A-> false
 	end.
-
-
-            
 
 make_presence_message("priority",Value,_From,_To,_Type,ID,_Body) ->
 	Xml = 
@@ -49,60 +43,42 @@ make_presence_message("priority",Value,_From,_To,_Type,ID,_Body) ->
 			children = [#xmlel{name = <<"priority">>,attrs = [],children = [{'xmlcdata',list_to_binary(Value)}]}]},
 	{xmlstreamelement, Xml};
 make_presence_message("status",Value,_From,_To,_Type,ID,Body) ->
-	Xml = 
-		#xmlel{name = <<"presence">>, 
-			attrs = [], 
-			children = ejabberd_pb2xml_public:make_cdata_xmlels(Body#messagebody.headers)},
-%			children = [#xmlel{name = <<"show">>,attrs = [],children = [{'xmlcdata',<<"busy">>}]},
-%						#xmlel{name = <<"priority">>,attrs = [],children = [{'xmlcdata',<<"1">>}]}]},
-	
+	Xml = #xmlel{name = <<"presence">>, attrs = [], 
+                children = ejabberd_pb2xml_public:make_cdata_xmlels(Body#messagebody.headers)},
+
 	{xmlstreamelement, Xml};
 make_presence_message("verify_friend",Value,_From,To,_Type,ID,Body) ->
 	Attrs = [{<<"xmlns">>,<<"jabber:x:verify_friend">>},
                 {<<"to">>,ejabberd_pb2xml_public:list_and_character_to_binary(To)},
                 {<<"type">>,<<"verify_friend">>}],
     Headers = Body#messagebody.headers,
-    Attrs1 = 
-        lists:flatmap(fun(Header) ->
-            case is_record(Header,stringheader) of
-            true ->
-                [{check_pb_stringHeader(Header), 
-                    ejabberd_pb2xml_public:list_and_character_to_binary(Header#stringheader.value)}];
-            _ ->
-             []
-             end end,Headers), 
-	Xml = 
-		#xmlel{name = <<"presence">>, 
-                attrs = Attrs ++ Attrs1,
-			children = []},
+    Attrs1 = lists:flatmap(fun(Header) ->
+        case is_record(Header,stringheader) of
+            true ->[{check_pb_stringHeader(Header), ejabberd_pb2xml_public:list_and_character_to_binary(Header#stringheader.value)}];
+            _ -> []
+        end
+    end,Headers), 
+	Xml = #xmlel{name = <<"presence">>, attrs = Attrs ++ Attrs1, children = []},
 	{xmlstreamelement, Xml};
 make_presence_message("manual_authentication_confirm",Value,_From,To,_Type,ID,Body) ->
 	Attrs = [{<<"xmlns">>,<<"jabber:x:manual_authentication">>},
                 {<<"to">>,ejabberd_pb2xml_public:list_and_character_to_binary(To)},
                 {<<"type">>,<<"manual_authentication_confirm">>}],
     Headers = Body#messagebody.headers,
-    Attrs1 = 
-        lists:flatmap(fun(Header) ->
-            case is_record(Header,stringheader) of
-            true ->
-                [{check_pb_stringHeader(Header),
-                    ejabberd_pb2xml_public:list_and_character_to_binary(Header#stringheader.value)}];
-            _ ->
-             []
-             end end,Headers), 
-	Xml = 
-		#xmlel{name = <<"presence">>, 
-                attrs = Attrs ++ Attrs1,
-			children = []},
+    Attrs1 = lists:flatmap(fun(Header) ->
+        case is_record(Header,stringheader) of
+            true -> [{check_pb_stringHeader(Header), ejabberd_pb2xml_public:list_and_character_to_binary(Header#stringheader.value)}];
+            _ -> []
+        end
+    end,Headers), 
+	Xml = #xmlel{name = <<"presence">>, attrs = Attrs ++ Attrs1, children = []},
+
 	{xmlstreamelement, Xml};
 make_presence_message(_,_,_,_,_,_,_) ->
 	false.
 
-
 check_pb_stringHeader(Header)  ->
     case ejabberd_pb2xml_public:get_header_definedkey(Header#stringheader.definedkey) of
-    'none' ->
-        list_to_binary(Header#stringheader.key);
-    V ->
-        V
+        'none' -> list_to_binary(Header#stringheader.key);
+        V -> V
     end.

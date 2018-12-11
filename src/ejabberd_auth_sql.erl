@@ -107,8 +107,7 @@ do_check_password(_,User, AuthzId, Server, Password) ->
                         _:_ ->
                             false %% Typical error is database not accessible
                     end;
-                false ->
-		    qtalk_auth:check_user_password(LServer,User,Password)
+                false -> qtalk_auth:check_user_password(LServer,User,Password)
             end
         end
     end.
