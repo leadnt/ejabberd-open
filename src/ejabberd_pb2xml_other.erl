@@ -11,8 +11,7 @@ parse_iq_message(Pb_message) ->
 		make_iq_message(IQ#iqmessage.key,IQ#iqmessage.value,
 					Pb_message#protomessage.from,Pb_message#protomessage.to,Pb_message#protomessage.signaltype,
 					IQ#iqmessage.messageid,IQ#iqmessage.body);
-	_ ->
-		false
+	_ -> false
 	end.
 
 make_iq_message("BIND",Value,_From,_To,_Type,ID,_Body) ->
