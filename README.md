@@ -12,6 +12,11 @@ ejaberd不支持的功能。
 ## 安装
 
 ```
+依赖包
+sudo yum -y update
+sudo yum -y groupinstall Base "Development Tools" "Perl Support"
+sudo yum -y install openssl openssl-devel unixODBC unixODBC-devel pkgconfig libSM libSM-devel libxslt ncurses-devel libyaml libyaml-devel expat expat-devel libxml2-devel libxml2 java-1.8.0-openjdk  java-1.8.0-openjdk-devel  pam-devel pcre-devel gd-devel bzip2-devel zlib-devel libicu-devel libwebp-devel gmp-devel curl-devel postgresql-devel libtidy libtidy-devel recode aspell libmcrypt  libmemcached gd
+
 cd ejabberd-open/
 ./configure --prefix=/home/q/ejabberd1609 --with-erlang=/home/q/erlang1903 --enable-pgsql --enable-full-xml
 make
