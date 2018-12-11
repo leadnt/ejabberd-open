@@ -10,15 +10,9 @@ parse_iq_message(Pb_message) ->
 	case catch message_pb:decode_iqmessage(Pb_message#protomessage.message) of
  	IQ when is_record(IQ,iqmessage)  ->
         To = case Pb_message#protomessage.to of
-             'undefined' ->
-                 %%   ejabberd_pb2xml_public:list_and_character_to_binary(Pb_message#protomessage.from);
-                 'undefined';
-              _ ->
-                    ejabberd_pb2xml_public:list_and_character_to_binary(Pb_message#protomessage.to)
-              end,
-	%	make_iq_message(IQ#iqmessage.key,IQ#iqmessage.value,
-	%				Pb_message#protomessage.from,To,Pb_message#protomessage.signaltype,
-	%				IQ#iqmessage.messageid,IQ#iqmessage.body,IQ#iqmessage.bodys);
+             'undefined' -> 'undefined';
+              _ -> ejabberd_pb2xml_public:list_and_character_to_binary(Pb_message#protomessage.to)
+        end,
         case ejabberd_pb2xml_public:get_iqKey_type(IQ#iqmessage.definedkey) of
         'none' ->
 	    	make_iq_message(IQ#iqmessage.key,IQ#iqmessage.value,
@@ -29,11 +23,8 @@ parse_iq_message(Pb_message) ->
 					Pb_message#protomessage.from,To,message_pb:int_to_enum(signaltype,Pb_message#protomessage.signaltype),
 					IQ#iqmessage.messageid,IQ#iqmessage.body,IQ#iqmessage.bodys)
         end;
-	_ ->
-		false
+	_ -> false
 	end.
-
-        
 
 make_iq_message("BIND",Value,_From,To,_Type,ID,_Body,_Bodys) ->
 	Xml = 
@@ -70,12 +61,6 @@ make_iq_message("GET_MUC_USER",Value,_From,To,_Type,ID,Body,_Bodys) ->
 		  attrs = make_iq_master_attrs(To,ID,<<"get">>),
 		children = [#xmlel{name = <<"query">>,
 				attrs = [{<<"xmlns">>,<<"http://jabber.org/protocol/muc#register">>}],children = []}]},
-	case catch To#jid.lserver of 
-	<<"ejabhost2">> ->
-		?INFO_MSG("GET_MUC_USER XML ~p ~n",[Xml]);
-	_ ->
-		ok
-	end,
 	{xmlstreamelement,Xml};
 make_iq_message("SET_MUC_USER",Value,_From,To,_Type,ID,Body,_Bodys) ->
 	Xml = #xmlel{name = <<"iq">>,
@@ -269,16 +254,12 @@ make_iq_master_attrs(To,ID,Type) when is_binary(To) ->
      [{<<"to">>,To},{<<"id">>,list_to_binary(ID)},{<<"type">>,Type}];
 make_iq_master_attrs(_,ID,Type) ->
      [{<<"id">>,list_to_binary(ID)},{<<"type">>,Type}].
-        
 
 remove_jid_domain(JID) when is_binary(JID) ->
     case catch str:str(JID,<<"@">>) of
-    0 ->
-        JID;
-    N when is_integer(N) ->
-        str:substr(JID,1,N-1);
-    _ ->
-        JID
+        0 -> JID;
+        N when is_integer(N) -> str:substr(JID,1,N-1);
+        _ -> JID
     end;
 remove_jid_domain(JID) ->
     JID.
