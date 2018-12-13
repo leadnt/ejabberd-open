@@ -39,23 +39,11 @@ code_change(_OldVsn, State, _Extra) ->
 start(_Type, Args) ->
 	Dispatch = cowboy_router:compile([
 		{'_', [
-                        {"/qtalk/[...]", http_dispatch, []},
-			{"/sendmessage",http_sendmessage,[]},
-			{"/send_warn_msg",http_send_warn_msg,[]},
-			{"/sendnotice",http_sendall,[]},
+            {"/qtalk/[...]", http_dispatch, []},
 			{"/management_cmd",http_management,[]},
 			{"/qmonitor.jsp",http_qmonitor,[]},
-			{"/send_rbt_msg",http_send_rbt_msg,[]},
-			{"/wlan_send_msg",http_wlan_send_msg,[]},
-			{"/get_user_status",http_get_user_status,[]},
 			{"/send_muc_presence",http_muc_vcard_presence,[]},
-			{"/create_muc",http_create_muc,[]},
-			{"/add_muc_user",http_add_muc_user,[]},
-			{"/del_muc_user",http_del_muc_user,[]},
-			{"/destroy_muc",http_destroy_muc,[]},
-			{"/get_muc_info",http_get_muc_info,[]},
-            {"/reload_module", http_reload_module, []},
-            {"/registeruser", http_registeruser, []}
+            {"/reload_module", http_reload_module, []}
 		]}
 	]),
 	cowboy:stop_listener(http),
