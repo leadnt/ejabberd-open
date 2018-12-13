@@ -12,15 +12,32 @@ ejaberd不支持的功能。
 ## 安装
 
 ```
+依赖包
+# sudo yum -y update
+# sudo yum -y groupinstall Base "Development Tools" "Perl Support"
+# sudo yum -y install openssl openssl-devel unixODBC unixODBC-devel pkgconfig libSM libSM-devel libxslt ncurses-devel libyaml libyaml-devel expat expat-devel libxml2-devel libxml2 java-1.8.0-openjdk  java-1.8.0-openjdk-devel  pam-devel pcre-devel gd-devel bzip2-devel zlib-devel libicu-devel libwebp-devel gmp-devel curl-devel postgresql-devel libtidy libtidy-devel recode aspell libmcrypt  libmemcached gd
+
+安装erlang
+# wget http://erlang.org/download/otp_src_19.3.tar.gz
+# tar -zxvf otp_src_19.3.tar.gz
+# cd otp_src_19.3
+# ./configure --prefix=/usr/local/erlang1903
+# make
+# sudo make install
+
 cd ejabberd-open/
-./configure --prefix=/home/q/ejabberd1609 --with-erlang=/home/q/erlang1903 --enable-pgsql --enable-full-xml
-make
-sudo make install
-sudo cp ejabberd.yml.qunar /home/q/ejabberd1609/etc/ejabberd/ejabberd.yml
-sudo cp ejabberdctl.cfg.qunar /home/q/ejabberd1609/etc/ejabberd/ejabberdctl.cfg
-sudo vim /home/q/ejabberd1609/etc/ejabberd/ejabberd.tml
-sudo vim /home/q/ejabberd1609/etc/ejabberd/ejabberdctl.cfg
+# ./configure --prefix=/home/q/ejabberd1609 --with-erlang=/usr/local/erlang1903 --enable-pgsql --enable-full-xml
+# make
+# sudo make install
+# sudo cp ejabberd.yml.qunar /home/q/ejabberd1609/etc/ejabberd/ejabberd.yml
+# sudo cp ejabberdctl.cfg.qunar /home/q/ejabberd1609/etc/ejabberd/ejabberdctl.cfg
+# sudo vim /home/q/ejabberd1609/etc/ejabberd/ejabberd.tml
+# sudo vim /home/q/ejabberd1609/etc/ejabberd/ejabberdctl.cfg
 ```
+
+## 配置文件修改
+
+参考文档[setting.md](doc/setting.md)
 
 ## 集群
 
