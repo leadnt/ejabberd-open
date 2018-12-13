@@ -35,6 +35,10 @@ cd ejabberd-open/
 # sudo vim /home/q/ejabberd1609/etc/ejabberd/ejabberdctl.cfg
 ```
 
+## 配置文件修改
+
+参考文档[setting.md](doc/setting.md)
+
 ## 集群
 
 -   在主节点执行以下命令
