@@ -3001,20 +3001,6 @@ add_message_to_history(Time,Nick, FromJID, Packet, StateData) ->
     XML = ejabberd_sql:escape(BPacket),
 
     do_insert_msg(StateData, FromNick, FromJID, XML, Size, Msg_Id, MSecTime),
-    %%MsgContent = rfc4627:encode({obj, [{"muc_room_name", StateData#state.room},
-    %%                                   {"room_host", StateData#state.host},
-    %%                                   {"host", FromJID#jid.lserver},
-    %%                                   {"nick", FromNick},
-    %%                                   {"packet", BPacket},
-    %%                                   {"have_subject", <<"1">>},
-    %%                                   {"size", Size},
-    %%                                   {"create_time", MSecTime},
-    %%                                   {"msg_id", Msg_Id},
-    %%                                   {"realfrom", RealFrom},
-    %%                                   {"userlist", UL}]}),
-    %%catch spawn(send_kafka_msg,send_kafka_msg,[<<"custom_vs_hosts_group_message">>, <<"groupchat">>, MsgContent]),
-    %%catch spawn(send_kafka_msg,send_kafka_msg,[<<"custom_vs_hash_hosts_group_message">>, <<"groupchat">>, MsgContent]),
-    %%catch insert_subscribe_msg(StateData,FromJID#jid.user,FromJID#jid.lserver,FromNick,XML,Packet),
 
     StateData.
 
@@ -3025,21 +3011,6 @@ do_insert_msg(StateData, FromNick, FromJID, XML, Size, Msg_Id, MSecTime) ->
         {atomic, ok};
     Error ->
         ?INFO_MSG("Insert muc Msg error ~p ~n",[Error])
-    end.
-
-insert_subscribe_msg(StateData,User,Host,FromNick,XML,Packet)->
-    case fxml:get_subtag(Packet, <<"body">>) of
-    B when is_binary(B) ->
-        subscribe_msg:insert_subscribe_msg_v2(Host,StateData#state.room,StateData#state.host,User,FromNick,XML,B);
-    Mbody ->
-        MsgType = fxml:get_tag_attr_s(<<"msgType">>,Mbody),
-        case MsgType /= <<"1024">> of
-        true ->
-            Body = fxml:get_subtag_cdata(Packet, <<"body">>),
-            subscribe_msg:insert_subscribe_msg_v2(Host,StateData#state.room,StateData#state.host,User,FromNick,XML,Packet,Body, MsgType);
-        _ ->
-            ok
-        end
     end.
 
 send_history(JID, Shift, StateData) ->
