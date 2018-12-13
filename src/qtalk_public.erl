@@ -37,13 +37,7 @@ get_nick(User) ->
 		
 
 get_nick(User,Host) ->
-    case catch ets:lookup(nicks,{User,Host}) of
-    [{_,Name}] ->
-        Name;
-    _ ->
-        subscription:get_subscription_cn_name({User,Host})
-    end.
-
+    <<User/binary, "_", Host/binary>>.
 
 %%%%%%%%--------------------------------------------------------------------
 %%%%%%%% @date 2017-03

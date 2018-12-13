@@ -99,7 +99,7 @@ encode_muc_user_pb(From,To,Packet) ->
     ID = case  fxml:get_attr(<<"id">>,Packet#xmlel.attrs) of
     false ->
             integer_to_binary(qtalk_public:timestamp());
-    {Value,I} ->
+    {_, I} ->
             I
     end,    
 	struct_pb_iq_msg(From,To,'SignalTypeIQ',<<"result">>,<<"muc_users">>,ID,'undefined','undefined',[],Bodys).
@@ -217,7 +217,7 @@ encode_user_muc_pb(From,To,Packet) ->
     ID = case  fxml:get_attr(<<"id">>,Packet#xmlel.attrs) of
     false ->
             integer_to_binary(qtalk_public:timestamp());
-    {Value,I} ->
+    {_, I} ->
             I
     end,    
 	struct_pb_iq_msg(From,To,'SignalTypeIQ',<<"result">>,<<"user_mucs">>,ID,'undefined','undefined',[],Bodys).
@@ -260,7 +260,7 @@ encode_muc_invite_user_v2_pb(From,To,Packet) ->
     ID = case  fxml:get_attr(<<"id">>,Packet#xmlel.attrs) of
     false ->
             integer_to_binary(qtalk_public:timestamp());
-    {Value,I} ->
+    {_, I} ->
             I
     end,    
     struct_pb_iq_msg(From,To,'SignalTypeIQ',<<"result">>,<<"muc_invite_user_v2">>,ID,'undefined','undefined',[],Bodys).
@@ -303,7 +303,7 @@ encode_pb_muc_user_del_register(From,To,Packet) ->
         case fxml:get_subtag(Packet,<<"query">>) of
         false ->
             'undefined';
-        Query ->
+        _ ->
             ejabberd_xml2pb_public:encode_messagebody([],<<"del_register">>)
         end,
     ID = qtalk_public:get_xml_attrs_id(Packet),
@@ -486,7 +486,7 @@ encode_pb_get_mask_user(From,To,Packet) ->
     ID = case  fxml:get_attr(<<"id">>,Packet#xmlel.attrs) of
     false ->
             integer_to_binary(qtalk_public:timestamp());
-    {Value,I} ->
+    {_, I} ->
             I
     end,    
 	struct_pb_iq_msg(From,To,'SignalTypeIQ',<<"result">>,<<"get_mask_users">>,ID,'undefined','undefined',[],Bodys).
@@ -641,7 +641,7 @@ encode_pb_get_virtual_user(From,To,Packet) ->
     ID = case  fxml:get_attr(<<"id">>,Packet#xmlel.attrs) of
     false ->
             integer_to_binary(qtalk_public:timestamp());
-    {Value,I} ->
+    {_, I} ->
             I
     end,    
 	struct_pb_iq_msg(From,To,'SignalTypeIQ',<<"result">>,<<"get_vuser">>,ID,'undefined','undefined',[],Bodys).

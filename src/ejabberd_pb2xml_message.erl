@@ -119,7 +119,7 @@ add_xmpp_attrs(Attrs,Key,Value) ->
         _ -> [{Key,Value}] ++ Attrs
     end.
 
-add_xmpp_spec_attrs(Attrs,ChatID,QchatID) ->
+add_xmpp_spec_attrs(Attrs,QchatID) ->
     case QchatID of
         'undefined'-> Attrs;
         ID when ID =:= <<"4">>; ID =:= <<"5">> -> [{<<"qchatid">>, ID}| Attrs];

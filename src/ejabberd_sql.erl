@@ -57,8 +57,10 @@
 	 freetds_config/0,
 	 odbcinst_config/0,
 	 init_mssql/1,
+     sql_call_use_module/2,
      sql_call_use_module/3,
      sql_query_use_module/3,
+     sql_query_use_module/2,
 	 keep_alive/1]).
 
 %% gen_fsm callbacks
@@ -171,8 +173,6 @@ sql_transaction(Host, F) when is_function(F) ->
 %% SQL bloc, based on a erlang anonymous function (F = fun)
 sql_bloc(F) -> sql_call(?SERVER_KEY, F).
 sql_bloc(Host, F) -> sql_call(Host, {sql_bloc, F}).
-
-sql_call(Msg) -> sql_call(?SERVER_KEY, Msg).
 
 sql_call(Host, Msg) ->
     sql_call_use_module(Host, Msg,ejabberd_sql_sup).    

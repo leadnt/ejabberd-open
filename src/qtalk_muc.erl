@@ -14,7 +14,7 @@
 
 -export([create_ets_table/0, init_ets_muc_users/3,make_default_presence_packet/1,add_subscribe_users/5]).
 -export([get_muc_registed_user_num/2,set_muc_room_users/5,del_muc_room_users/5,del_subscribe_users/4]).
--export([find_muc_registed_user/4,init_ets_muc_user/3]).
+-export([init_ets_muc_user/3]).
 -export([del_ets_subscribe_users/2,del_ets_muc_room_users/2,do_del_subscribe_users/5]).
 -export([update_subscribe_users/7]).
 
@@ -250,35 +250,3 @@ del_ets_subscribe_users(_Server,Room) ->
 
 del_ets_muc_room_users(_Server,Room) ->
 	catch ets:delete(muc_room_users,Room).
-
-
-find_muc_registed_user(Nick,Host1,Room,Domain) ->
-    case str:str(Nick,<<"@">>) of
-    N when is_integer(N) , N > 0 ->
-       % {str:substr(Nick,1, N -1),str:substr(Nick,N+1,size(Nick) -N)};
-        get_ets_muc_user(str:substr(Nick,1, N -1),str:substr(Nick,1+N, size(Nick)-N),Room,Domain);
-    _ ->
-        case catch ets:lookup(nick_name,{Nick,Host1}) of
-        [] ->
-            get_ets_muc_user(Nick,Host1,Room,Domain);
-        [{_,User}] ->
-            get_ets_muc_user(User,Host1,Room,Domain)
-        end
-    end.
-
-get_ets_muc_user(User,Host,Room,Domain) ->
-    case catch ets:lookup(muc_users,{Room,Domain}) of
-    [] ->
-        false;
-    [{_,UL}] when is_list(UL) ->
-        case proplists:get_value(User,UL) of
-        undefined ->
-            false;
-        Host ->
-           {User,Host};
-	_ ->
-	    false
-        end;
-    _ ->
-        false
-    end.

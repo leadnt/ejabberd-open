@@ -148,7 +148,6 @@ encode_pb_size(Size) ->
             S2  = S1 bsr 7,
             if S2 > 128 ->
                 T3 = S2 bor 16#80,
-                L3 = <<T1,T2,T3>>,
                 S3  = S2 bsr 7,
                 if  S3 > 128 ->
                     T4 = S3 bor 16#80,

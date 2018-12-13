@@ -253,7 +253,7 @@ init([]) ->
     
     Server = lists:nth(1,ejabberd_config:get_myhosts()),
     catch ets:new(domain_to_host, [set, named_table, public, {keypos, 2},{write_concurrency, true}, {read_concurrency, true}]),
-%%    catch update_s2s_mapperd_host(Server),
+    catch update_s2s_mapperd_host(Server),
 
     {ok, #state{}}.
 
@@ -828,7 +828,6 @@ insert_s2s_msg(MyServer,From,To,Packet) ->
     end,
     case  fxml:get_attr_s(<<"type">>, Attrs) of
     Mtype when Mtype == <<"normal">>; Mtype == <<"chat">> ; Mtype == <<"consult">> ->
-        Reply = fxml:get_attr_s(<<"auto_reply">>, Attrs),
         Mbody = fxml:get_subtag_cdata(NewPacket, <<"body">>),
         Delay = fxml:get_subtag_cdata(NewPacket,<<"delay">>),
         case Mbody =/= <<>> andalso Delay =/= <<"Offline Storage">> of
@@ -848,53 +847,6 @@ insert_s2s_msg(MyServer,From,To,Packet) ->
         _ ->
             NewPacket
         end;
-%%    MT when MT == <<"groupchat">> ->
-%%        ?DEBUG("the s2s groupchat message is ~p~n", [{From, To, NewPacket}]),
-%%        case {str:str(To#jid.lserver, <<"conference.">>) =/= 0, To#jid.lresource == <<"">>} of
-%%            {true, true} ->
-%%                ?DEBUG("the message is to s2s group ~p~n", [To]),
-%%                insert_s2s_group_msg(MyServer, From, To, NewPacket),
-%%                NewPacket;
-%%            _ -> Packet
-%%        end;
     _ ->
         Packet
-    end.
-
-insert_s2s_group_msg(MyServer, From, To, Packet) ->
-    InsertTime = qtalk_public:get_exact_timestamp(),
-    FromNick = qtalk_public:get_nick(From#jid.luser,From#jid.luser),
-    Msg_Id  =
-        case catch fxml:get_tag_attr_s(<<"id">>,fxml:get_subtag(Packet,<<"body">>)) of
-        <<"">> ->
-            list_to_binary(integer_to_list(InsertTime));
-        ID ->
-            ID
-        end,
-
-    New_Packet11 = jlib:replace_from_to(jlib:jid_replace_resource(To,
-                           FromNick),
-             To, Packet),
-    Size = 0,
-
-    New_Packet = case fxml:get_tag_attr_s(<<"chatid">>, New_Packet11) of
-    undefined ->
-        fxml:replace_tag_attr(<<"chatid">>, <<"1">>, New_Packet11);
-    _ ->
-        New_Packet11
-    end,    
-
-    #xmlel{name = Name, attrs = Attrs, children = Els} = New_Packet,
-    NewPacket = #xmlel{name = Name,
-           attrs =  [{<<"msec_times">>,integer_to_binary(InsertTime)},{<<"realfrom">>, From#jid.luser}] ++ proplists:delete(<<"msec_times">>, proplists:delete(<<"realfrom">>, Attrs)),
-           children =  Els},
-    BPacket = fxml:element_to_binary(NewPacket),
-    XML = ejabberd_sql:escape(BPacket),
-    case catch qtalk_sql:insert_muc_msg(<<"unused">>,To#jid.luser,FromNick,From#jid.lserver,
-                                    XML,Size,Msg_Id,qtalk_public:pg2timestamp(InsertTime)) of
-    {updated, 1} ->
-	 %%catch spawn(send_kafka_msg,send_muc_msg,[<<"custom_vs_qtalk_chat">>,To#jid.luser,FromNick,From#jid.luser,BPacket]),
-        {atomic, ok};
-    Error ->
-        ?INFO_MSG("Insert muc Msg error ~p ~n",[Error])
     end.

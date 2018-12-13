@@ -6,27 +6,13 @@
 
 -module(qtalk_auth).
 
--export([wlan_check_password/3,check_white_list/1,check_frozen_flag/1]).
--export([create_ets_table/0,delete_ets_table/0,kick_token_login_user/2,check_multiple_login_user/1]).
+-export([wlan_check_password/3,check_frozen_flag/1]).
+-export([kick_token_login_user/2]).
 -export([check_user_password/3]).
 
 -include("ejabberd.hrl").
 -include("logger.hrl").
 
-%%--------------------------------------------------------------------
-%%%% @date 2017-03-01
-%%%%% 创建删除相关ets表
-%%%%%--------------------------------------------------------------------
-create_ets_table() ->
-    catch ets:new(blacklist, [set, named_table, public, {keypos, 1},{write_concurrency, true}, {read_concurrency, true}]),
-    catch ets:new(whitelist, [set, named_table, public, {keypos, 1},{write_concurrency, true}, {read_concurrency, true}]),
-    catch ets:new(sn_user,   [set, named_table, public, {keypos, 1},{write_concurrency, true}, {read_concurrency, true}]).
-
-delete_ets_table() ->
-    catch ets:delete(blacklist),
-    catch ets:delete(whitelist),
-    catch ets:delete(sn_user).
-        
 check_user_password(Host, User, Password) ->
     R = case qtalk_sql:get_password_by_host(Host, User) of
         {selected,_, [[Password1]]} -> 
@@ -53,7 +39,7 @@ check_user_password(Host, User, Password) ->
 
     R.
 
-do_check_host_user(Host,User,Password,Pass) ->
+do_check_host_user(_Host, _User, Password, Pass) ->
    Password =:= Pass. 
 
 %%--------------------------------------------------------------------
@@ -61,70 +47,15 @@ do_check_host_user(Host,User,Password,Pass) ->
 %%%%% WLAN 密码验证
 %%%%%--------------------------------------------------------------------
 
-wlan_check_password(Server,User,Pass) ->
+wlan_check_password(_Server, _User, _Pass) ->
     true.
-
-%%--------------------------------------------------------------------
-%%%% @date 2017-03-01
-%%%%% 白名单检查
-%%%%%--------------------------------------------------------------------
-
-check_white_list(User) ->
-    case ets:lookup(whitelist,User)  of
-    [] ->
-        false;
-    % 只允许单点登录
-    [{User, <<"1">>}|_] ->
-        {true, single};
-     % 允许多个设备同时登录
-    _ ->
-        {true, no_limit}
-    end.
-
 
 %%--------------------------------------------------------------------
 %%%% @date 2017-03-01
 %%%%% 黑名单检查
 %%%%%--------------------------------------------------------------------
-check_frozen_flag(User) ->
-    case catch ets:lookup(blacklist, User) of
-        [] ->
-            true;
-        _ ->
-            false
-    end.
-
-%%--------------------------------------------------------------------
-%%%% @date 2017-03-01
-%%%%% WLAN可多登用户
-%%%%%--------------------------------------------------------------------
-check_multiple_login_user(User) ->
-    case catch ets:lookup(multiple_users,User) of
-    [{User,1}] ->
-        true;
-    _ ->
-        false
-    end.
-
-
-%%--------------------------------------------------------------------
-%%%% @date 2017-03-01
-%%%%% 检测用户登陆
-%%%%%--------------------------------------------------------------------
-check_user_resources(_, _, no_limit) ->
-    ok;
-check_user_resources(Server, User, single) ->
-    case ejabberd_sm:get_user_resources(User, Server) of
-        [] ->
-            ok;
-        Resources ->
-            lists:foreach(
-              fun(Resource) ->
-                      PID = ejabberd_sm:get_session_pid(User, Server, Resource),
-                      ?ERROR_MSG("kick user ~p~n", [User]),
-                      PID ! kick
-              end, Resources)
-    end.
+check_frozen_flag(_User) ->
+    true.
 
 kick_token_login_user(Username,Server) ->
     case ejabberd_sm:get_user_present_resources_and_pid(Username, Server) of
