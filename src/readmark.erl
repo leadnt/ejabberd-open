@@ -5,25 +5,6 @@
 -include("jlib.hrl").
 -include("logger.hrl").
 
-readmark_message1(From,To,Packet) ->
-    Type = fxml:get_tag_attr_s(<<"type">>, Packet),
-    LFrom = From#jid.user,
-    LTo = To#jid.user,
-    From_host = From#jid.lserver,
-    To_host = To#jid.lserver,
-    LBody = fxml:element_to_binary(Packet),
-    LId = fxml:get_tag_attr_s(<<"id">>, fxml:get_subtag(Packet,<<"body">>)),
-    Time = binary_to_integer(fxml:get_tag_attr_s(<<"msec_times">>, Packet)),
-    MsgContent = rfc4627:encode({obj, [{"m_from", LFrom},
-                                       {"from_host", From_host},
-                                       {"m_to", LTo},
-                                       {"to_host", To_host},
-                                       {"m_body", LBody},
-                                       {"create_time", Time},
-                                       {"type", <<"readmark">>},
-                                       {"msg_id", LId}]}),
-    catch spawn(send_kafka_msg,send_kafka_msg,[<<"custom_vs_hash_hosts_chat_message">>, Type, MsgContent]).
-
 readmark_message(From, To, Packet) ->                                                                                                                                                                                                                                        
         case fxml:get_tag_attr_s(<<"read_type">>, Packet) of                                                                                                                                                                                                                  
         <<"0">> ->                                                                                                                                                                                                                                                            

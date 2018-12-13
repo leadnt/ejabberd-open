@@ -55,7 +55,6 @@
 %%% API
 %%%----------------------------------------------------------------------
 start(_Host) ->
-    qtalk_auth:create_ets_table(),
     ok.
 
 plain_password_required() ->

@@ -613,13 +613,7 @@ normal_state({route, From, ToNick,
 			       true ->
 				   ErrText =
 				       <<"It is not allowed to send private messages">>,
-				   Err = jlib:make_error_reply(Packet,
-							       ?ERRT_FORBIDDEN(Lang,
-									       ErrText)),
-%				   ejabberd_router:route(jid:replace_resource(StateData#state.jid,
-%									  ToNick),
-%						From, Err)
-                  ?INFO_MSG("ErrText ~p ~n",[ErrText])
+                                   ?INFO_MSG("ErrText ~p ~n",[ErrText])
 			    end
 		      end
 		end;
@@ -1070,8 +1064,7 @@ route(Pid, From, ToNick, Packet) ->
     gen_fsm:send_event(Pid, {route, From, ToNick, Packet}).
 
 process_groupchat_message(From,
-			  #xmlel{name = <<"message">>, attrs = Attrs , children = Els} = Packet,
-			  StateData) ->
+    #xmlel{name = <<"message">>, attrs = Attrs} = Packet, StateData) ->
     Lang = fxml:get_attr_s(<<"xml:lang">>, Attrs),
     IsSubscriber = is_subscriber(From, StateData),
     case is_user_online_with_no_resource(From, StateData) orelse IsSubscriber orelse
@@ -1079,7 +1072,6 @@ process_groupchat_message(From,
 	of
       true ->
 	  {FromNick, Role} = get_participant_data(From, StateData),
-        ?DEBUG("From ~p ,FromNick ~p ~n",[From,FromNick]),
 	  if (Role == moderator) or (Role == participant) or IsSubscriber or
 	       ((StateData#state.config)#config.moderated == false) ->
 		 Subject = check_subject(Packet),
@@ -1882,22 +1874,7 @@ update_online_user(JID, #user{nick = Nick} = User, StateData) ->
     NewStateData.
 
 set_subscriber(_JID, _Nick, _Nodes, StateData) ->
-%    do_set_subscriber(JID, Nick, Nodes, StateData),
     StateData.
-
-do_set_subscriber(JID, Nick, Nodes, StateData) ->
-    BareJID = jid:remove_resource(JID),
-    LBareJID = jid:tolower(BareJID),
-    Subscribers = ?DICT:store(LBareJID,
-			      #subscriber{jid = BareJID,
-					  nick = Nick,
-					  nodes = Nodes},
-			      StateData#state.subscribers),
-    Nicks = ?DICT:store(Nick, [LBareJID], StateData#state.subscriber_nicks),
-    NewStateData = StateData#state{subscribers = Subscribers,
-				   subscriber_nicks = Nicks},
-    store_room(NewStateData),
-    NewStateData.
 
 add_online_user(JID, Nick, Role, StateData) ->
     tab_add_online_user(JID, StateData),
@@ -1907,11 +1884,10 @@ add_online_user(JID, Nick, Role, StateData) ->
 remove_online_user(JID, StateData) ->
     remove_online_user(JID, StateData, <<"">>).
 
-remove_online_user(JID, StateData, Reason) ->
+remove_online_user(JID, StateData, _Reason) ->
     LJID = jid:tolower(JID),
     {ok, #user{nick = Nick}} = (?DICT):find(LJID,
 					    StateData#state.users),
-%    add_to_log(leave, {Nick, Reason}, StateData),
     tab_remove_online_user(JID, StateData),
     Users = (?DICT):erase(LJID, StateData#state.users),
     Nicks = case (?DICT):find(Nick, StateData#state.nicks)
@@ -2036,11 +2012,9 @@ get_priority_from_presence(PresencePacket) ->
 
 find_nick_by_jid(Jid, StateData) ->
     ?INFO_MSG("muc_room users ~p ~n",[(?DICT):to_list(StateData#state.users)]),
-        case lists:filter(fun ({_,
-						   #user{jid = FJid}}) ->
-						     FJid == Jid
-					     end,
-					     (?DICT):to_list(StateData#state.users)) of
+    case lists:filter(fun ({_, #user{jid = FJid}}) ->
+                          FJid == Jid
+                      end, (?DICT):to_list(StateData#state.users)) of
 
     [{_, #user{nick = Nick}}]  ->
         Nick;
@@ -2183,14 +2157,7 @@ do_add_new_user(Flag,From1, Nick,
 					   From, Packet,
 					   add_online_user(From, Nick, Role,
 							   StateData)),
-			     % send_existing_presences(From, NewState),
-		%	      send_initial_presence(From, NewState, StateData),
-                  send_presence_by_flag(Flag,From, Attrs,NewState,StateData),
-%			      Shift = count_stanza_shift(Nick, Els, NewState),
-%			      case send_history(From, Shift, NewState) of
-%				  true -> ok;
-%				  _ -> send_subject(From, StateData)
-%			      end,
+                              send_presence_by_flag(Flag,From, Attrs,NewState,StateData),
 			      NewState;
 			 true ->
 			      set_subscriber(From, Nick, Nodes, StateData)
@@ -2332,96 +2299,6 @@ extract_password([#xmlel{attrs = Attrs} = El | Els]) ->
     end;
 extract_password([_ | Els]) -> extract_password(Els).
 
-count_stanza_shift(Nick, Els, StateData) ->
-    HL = lqueue_to_list(StateData#state.history),
-    Since = extract_history(Els, <<"since">>),
-    Shift0 = case Since of
-	       false -> 0;
-	       _ ->
-		   Sin = calendar:datetime_to_gregorian_seconds(Since),
-		   count_seconds_shift(Sin, HL)
-	     end,
-    Seconds = extract_history(Els, <<"seconds">>),
-    Shift1 = case Seconds of
-	       false -> 0;
-	       _ ->
-		   Sec = calendar:datetime_to_gregorian_seconds(calendar:universal_time())
-                         - Seconds,
-		   count_seconds_shift(Sec, HL)
-	     end,
-    MaxStanzas = extract_history(Els, <<"maxstanzas">>),
-    Shift2 = case MaxStanzas of
-	       false -> 0;
-	       _ -> count_maxstanzas_shift(MaxStanzas, HL)
-	     end,
-    MaxChars = extract_history(Els, <<"maxchars">>),
-    Shift3 = case MaxChars of
-	       false -> 0;
-	       _ -> count_maxchars_shift(Nick, MaxChars, HL)
-	     end,
-    lists:max([Shift0, Shift1, Shift2, Shift3]).
-
-count_seconds_shift(Seconds, HistoryList) ->
-    lists:sum(lists:map(fun ({_Nick, _Packet, _HaveSubject,
-			      TimeStamp, _Size}) ->
-				T =
-				    calendar:datetime_to_gregorian_seconds(TimeStamp),
-				if T < Seconds -> 1;
-				   true -> 0
-				end
-			end,
-			HistoryList)).
-
-count_maxstanzas_shift(MaxStanzas, HistoryList) ->
-    S = length(HistoryList) - MaxStanzas,
-    if S =< 0 -> 0;
-       true -> S
-    end.
-
-count_maxchars_shift(Nick, MaxSize, HistoryList) ->
-    NLen = byte_size(Nick) + 1,
-    Sizes = lists:map(fun ({_Nick, _Packet, _HaveSubject,
-			    _TimeStamp, Size}) ->
-			      Size + NLen
-		      end,
-		      HistoryList),
-    calc_shift(MaxSize, Sizes).
-
-calc_shift(MaxSize, Sizes) ->
-    Total = lists:sum(Sizes),
-    calc_shift(MaxSize, Total, 0, Sizes).
-
-calc_shift(_MaxSize, _Size, Shift, []) -> Shift;
-calc_shift(MaxSize, Size, Shift, [S | TSizes]) ->
-    if MaxSize >= Size -> Shift;
-       true -> calc_shift(MaxSize, Size - S, Shift + 1, TSizes)
-    end.
-
-extract_history([], _Type) -> false;
-extract_history([#xmlel{attrs = Attrs} = El | Els],
-		Type) ->
-    case fxml:get_attr_s(<<"xmlns">>, Attrs) of
-      ?NS_MUC ->
-	  AttrVal = fxml:get_path_s(El,
-				   [{elem, <<"history">>}, {attr, Type}]),
-	  case Type of
-	    <<"since">> ->
-		case jlib:datetime_string_to_timestamp(AttrVal) of
-		  undefined -> false;
-		  TS -> calendar:now_to_universal_time(TS)
-		end;
-	    _ ->
-		case catch jlib:binary_to_integer(AttrVal) of
-		  IntVal when is_integer(IntVal) and (IntVal >= 0) ->
-		      IntVal;
-		  _ -> false
-		end
-	  end;
-      _ -> extract_history(Els, Type)
-    end;
-extract_history([_ | Els], Type) ->
-    extract_history(Els, Type).
-
 is_room_overcrowded(StateData) ->
     MaxUsersPresence = gen_mod:get_module_opt(StateData#state.server_host,
 	mod_muc, max_users_presence,
@@ -2432,9 +2309,6 @@ is_room_overcrowded(StateData) ->
 presence_broadcast_allowed(JID, StateData) ->
     Role = get_role(JID, StateData),
     lists:member(Role, (StateData#state.config)#config.presence_broadcast).
-
-send_initial_presence(NJID, StateData, OldStateData) ->
-    send_new_presence1(NJID, <<"">>, true, StateData, OldStateData).
 
 send_update_presence(JID, StateData, OldStateData) ->
     send_update_presence(JID, <<"">>, StateData, OldStateData).
@@ -2899,58 +2773,6 @@ status_els(_IsInitialPresence, _JID, _Info, _StateData) -> [].
 lqueue_new(Max) ->
     #lqueue{queue = queue:new(), len = 0, max = Max}.
 
-%% If the message queue limit is set to 0, do not store messages.
-lqueue_in(_Item, LQ = #lqueue{max = 0}) -> LQ;
-%% Otherwise, rotate messages in the queue store.
-lqueue_in(Item,
-	  #lqueue{queue = Q1, len = Len, max = Max}) ->
-    Q2 = queue:in(Item, Q1),
-    if Len >= Max ->
-	   Q3 = lqueue_cut(Q2, Len - Max + 1),
-	   #lqueue{queue = Q3, len = Max, max = Max};
-       true -> #lqueue{queue = Q2, len = Len + 1, max = Max}
-    end.
-
-lqueue_cut(Q, 0) -> Q;
-lqueue_cut(Q, N) ->
-    {_, Q1} = queue:out(Q), lqueue_cut(Q1, N - 1).
-
-lqueue_to_list(#lqueue{queue = Q1}) ->
-    queue:to_list(Q1).
-
-
-add_message_to_history_v05(FromNick, FromJID, Packet, StateData) ->
-    HaveSubject = case fxml:get_subtag(Packet, <<"subject">>)
-		      of
-		    false -> false;
-		    _ -> true
-		  end,
-    TimeStamp = p1_time_compat:timestamp(),
-    AddrPacket = case (StateData#state.config)#config.anonymous of
-		   true -> Packet;
-		   false ->
-		       Address = #xmlel{name = <<"address">>,
-					attrs = [{<<"type">>, <<"ofrom">>},
-						 {<<"jid">>,
-						  jid:to_string(FromJID)}],
-					children = []},
-		       Addresses = #xmlel{name = <<"addresses">>,
-					  attrs = [{<<"xmlns">>, ?NS_ADDRESS}],
-					  children = [Address]},
-		       fxml:append_subtags(Packet, [Addresses])
-		 end,
-    TSPacket = jlib:add_delay_info(AddrPacket, StateData#state.jid, TimeStamp),
-    SPacket =
-	jlib:replace_from_to(jid:replace_resource(StateData#state.jid,
-						       FromNick),
-			     StateData#state.jid, TSPacket),
-    Size = element_size(SPacket),
-    Q1 = lqueue_in({FromNick, TSPacket, HaveSubject,
-		    calendar:now_to_universal_time(TimeStamp), Size},
-		   StateData#state.history),
-%    add_to_log(text, {FromNick, Packet}, StateData),
-    StateData#state{history = Q1}.
-
 add_message_to_history(Nick, FromJID, Packet, StateData) ->
     Time = qtalk_public:get_exact_timestamp(),
     add_message_to_history(Time, Nick, FromJID, Packet, StateData).
@@ -2988,34 +2810,16 @@ add_message_to_history(Time,Nick, FromJID, Packet, StateData) ->
              StateData#state.jid, Packet),
     Size = 0,
 
-    #xmlel{name = <<"message">>, attrs = Attrs, children = Els} = New_Packet,
-    RealFrom = fxml:get_attr_s(<<"realfrom">>, Attrs),
+    #xmlel{name = <<"message">>, attrs = Attrs} = New_Packet,
     MSecTime = case fxml:get_attr_s(<<"msec_times">>, Attrs) of
         <<"">> -> qtalk_public:get_exact_timestamp();
         T -> binary_to_integer(T)
     end,
 
-    UL = do_get_muc_room_users(StateData),
-
     BPacket = fxml:element_to_binary(New_Packet),
     XML = ejabberd_sql:escape(BPacket),
 
     do_insert_msg(StateData, FromNick, FromJID, XML, Size, Msg_Id, MSecTime),
-    %%MsgContent = rfc4627:encode({obj, [{"muc_room_name", StateData#state.room},
-    %%                                   {"room_host", StateData#state.host},
-    %%                                   {"host", FromJID#jid.lserver},
-    %%                                   {"nick", FromNick},
-    %%                                   {"packet", BPacket},
-    %%                                   {"have_subject", <<"1">>},
-    %%                                   {"size", Size},
-    %%                                   {"create_time", MSecTime},
-    %%                                   {"msg_id", Msg_Id},
-    %%                                   {"realfrom", RealFrom},
-    %%                                   {"userlist", UL}]}),
-    %%catch spawn(send_kafka_msg,send_kafka_msg,[<<"custom_vs_hosts_group_message">>, <<"groupchat">>, MsgContent]),
-    %%catch spawn(send_kafka_msg,send_kafka_msg,[<<"custom_vs_hash_hosts_group_message">>, <<"groupchat">>, MsgContent]),
-    %%catch insert_subscribe_msg(StateData,FromJID#jid.user,FromJID#jid.lserver,FromNick,XML,Packet),
-
     StateData.
 
 do_insert_msg(StateData, FromNick, FromJID, XML, Size, Msg_Id, MSecTime) ->
@@ -3026,45 +2830,6 @@ do_insert_msg(StateData, FromNick, FromJID, XML, Size, Msg_Id, MSecTime) ->
     Error ->
         ?INFO_MSG("Insert muc Msg error ~p ~n",[Error])
     end.
-
-insert_subscribe_msg(StateData,User,Host,FromNick,XML,Packet)->
-    case fxml:get_subtag(Packet, <<"body">>) of
-    B when is_binary(B) ->
-        subscribe_msg:insert_subscribe_msg_v2(Host,StateData#state.room,StateData#state.host,User,FromNick,XML,B);
-    Mbody ->
-        MsgType = fxml:get_tag_attr_s(<<"msgType">>,Mbody),
-        case MsgType /= <<"1024">> of
-        true ->
-            Body = fxml:get_subtag_cdata(Packet, <<"body">>),
-            subscribe_msg:insert_subscribe_msg_v2(Host,StateData#state.room,StateData#state.host,User,FromNick,XML,Packet,Body, MsgType);
-        _ ->
-            ok
-        end
-    end.
-
-send_history(JID, Shift, StateData) ->
-    lists:foldl(fun ({Nick, Packet, HaveSubject, _TimeStamp,
-		      _Size},
-		     B) ->
-			ejabberd_router:route(jid:replace_resource(StateData#state.jid,
-							       Nick),
-				     JID, Packet),
-			B or HaveSubject
-		end,
-		false,
-		lists:nthtail(Shift,
-			      lqueue_to_list(StateData#state.history))).
-
-send_subject(_JID, #state{subject_author = <<"">>}) -> ok;
-send_subject(JID, #state{subject_author = Nick} = StateData) ->
-    Subject = StateData#state.subject,
-    Packet = #xmlel{name = <<"message">>,
-		    attrs = [{<<"type">>, <<"groupchat">>}],
-		    children =
-			[#xmlel{name = <<"subject">>, attrs = [],
-				children = [{xmlcdata, Subject}]}]},
-    ejabberd_router:route(jid:replace_resource(StateData#state.jid, Nick), JID,
-			  Packet).
 
 check_subject(Packet) ->
     case fxml:get_subtag(Packet, <<"subject">>) of
@@ -3302,39 +3067,12 @@ find_changed_items(UJID, UAffiliation, URole,
                                                    <<"Jabber ID ~s is invalid">>),
                                                  [S])),
 		       {error, ?ERRT_NOT_ACCEPTABLE(Lang, ErrText)};
-		   J -> {value, [J]}
+		   J -> check_Attrs_JID(J#jid.luser,J#jid.lserver,Attrs,StateData), {value, [J]}
 		 end;
 	     _ ->
-		 case fxml:get_attr(<<"nick">>, Attrs) of
-		   {value, N} ->
-		       case find_jids_by_nick(N, StateData) of
-			 false ->
-                 case qtalk_muc:find_muc_registed_user(N,StateData#state.server_host,StateData#state.room,StateData#state.host) of
-                 false ->
-    			     ErrText = iolist_to_binary(
-                                         io_lib:format(
-                                           translate:translate(
-                                             Lang,
-                                             <<"Nickname ~s does not exist in the room">>),
-                                           [N])),
-	    		     {error, ?ERRT_NOT_ACCEPTABLE(Lang, ErrText)};
-                 {User,Host} ->
-                    check_Attrs_JID(User,Host,Attrs,StateData)  
-                 end; 
-			 J ->
-                case J of   
-                [JID1 | _] -> 
-                    catch check_Attrs_JID(JID1#jid.luser,JID1#jid.lserver,Attrs,StateData);
-                _ ->
-                    ok
-                end,
-                {value, J}
-		       end;
-		   _ ->
-		       Txt1 = <<"No 'nick' attribute found">>,
-		       {error, ?ERRT_BAD_REQUEST(Lang, Txt1)}
-		 end
-	   end,
+		   Txt1 = <<"No 'jid' attribute found">>,
+		   {error, ?ERRT_BAD_REQUEST(Lang, Txt1)}
+    end,
     case TJID of
       {value, [JID | _] = JIDs} ->
 	  TAffiliation = get_affiliation(JID, StateData),
@@ -3617,9 +3355,6 @@ send_kickban_presence(UJID, JID, Reason, Code, NewAffiliation,
     catch qtalk_muc:update_subscribe_users(false,StateData#state.server_host,JID#jid.luser,JID#jid.lserver,StateData#state.room,StateData#state.host,<<"0">>),
     catch send_muc_del_registed_presence(JID,StateData),
     lists:foreach(fun (J) ->
-			  {ok, #user{nick = Nick}} = (?DICT):find(J,
-								  StateData#state.users),
-%			  add_to_log(kickban, {Nick, Reason, Code}, StateData),
 			  tab_remove_online_user(J, StateData),
 			  send_kickban_presence1(UJID, J, Reason, Code,
 						 NewAffiliation, StateData)
@@ -3720,7 +3455,6 @@ process_iq_owner(From, set, Lang, SubEl, StateData) ->
 		    of
 		  {?NS_XDATA, <<"cancel">>} -> {result, [], StateData};
 		  {?NS_XDATA, <<"submit">>} ->
-		    %  case is_allowed_log_change(XEl, StateData, From) andalso
 		       case is_allowed_persistent_change(XEl, StateData, From)
 			       andalso
 			       is_allowed_room_name_desc_limits(XEl, StateData)
@@ -3788,17 +3522,6 @@ process_iq_owner(From, get, Lang, SubEl, StateData) ->
       _ ->
 	  ErrText = <<"Owner privileges required">>,
 	  {error, ?ERRT_FORBIDDEN(Lang, ErrText)}
-    end.
-
-is_allowed_log_change(XEl, StateData, From) ->
-    case lists:keymember(<<"muc#roomconfig_enablelogging">>,
-			 1, jlib:parse_xdata_submit(XEl))
-	of
-      false -> true;
-      true ->
-	  allow ==
-	    mod_muc_log:check_access_log(StateData#state.server_host,
-					 From)
     end.
 
 is_allowed_persistent_change(XEl, StateData, From) ->
@@ -3926,7 +3649,7 @@ get_default_room_maxusers(RoomState) ->
 
 get_config(Lang, StateData, From) ->
     {_AccessRoute, _AccessCreate, _AccessAdmin,
-     AccessPersistent} =
+     _AccessPersistent} =
 	StateData#state.access,
     ServiceMaxUsers = get_service_max_users(StateData),
     DefaultRoomMaxUsers =
@@ -3964,25 +3687,7 @@ get_config(Lang, StateData, From) ->
 			 <<"muc#roomconfig_roomdesc">>,
 			 (Config#config.description))]
 	    ++
-%	    case acl:match_rule(StateData#state.server_host,
-%				AccessPersistent, From)
-%		of
-%	      allow ->
-%5		  [?BOOLXFIELD(<<"Make room persistent">>,
-%			       <<"muc#roomconfig_persistentroom">>,
-%			       (Config#config.persistent))];
-%	      _ -> []
-%	    end
-%	      ++
 	      [
-%		?BOOLXFIELD(<<"Make room public searchable">>,
-%			   <<"muc#roomconfig_publicroom">>,
-%			   (Config#config.public)),
-%	       ?BOOLXFIELD(<<"Make participants list public">>,
-%			   <<"public_list">>, (Config#config.public_list)),
-%	       ?BOOLXFIELD(<<"Make room password protected">>,
-%			   <<"muc#roomconfig_passwordprotectedroom">>,
-%			   (Config#config.password_protected)),
 	       ?PRIVATEXFIELD(<<"Password">>,
 			      <<"muc#roomconfig_roomsecret">>,
 			      case Config#config.password_protected of
@@ -4247,17 +3952,6 @@ set_config(XEl, StateData, Lang) ->
 			   StateData#state.server_host, Lang) of
 	    #config{} = Config ->
 		Res = change_config(Config, StateData),
-		{result, _, NSD} = Res,
-		Type = case {(StateData#state.config)#config.logging,
-			     Config#config.logging}
-			   of
-			 {true, false} -> roomconfig_change_disabledlogging;
-			 {false, true} -> roomconfig_change_enabledlogging;
-			 {_, _} -> roomconfig_change
-		       end,
-		Users = [{U#user.jid, U#user.nick, U#user.role}
-			 || {_, U} <- (?DICT):to_list(StateData#state.users)],
-%		add_to_log(Type, Users, NSD),
 		Res;
 	    Err -> Err
 	  end
@@ -5414,23 +5108,6 @@ send_error_only_occupants(Packet, Lang, RoomJID, From) ->
     ejabberd_router:route(RoomJID, From, Err).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Logging
-
-add_to_log(Type, Data, StateData)
-    when Type == roomconfig_change_disabledlogging ->
-    mod_muc_log:add_to_log(StateData#state.server_host,
-			   roomconfig_change, Data, StateData#state.jid,
-			   make_opts(StateData));
-add_to_log(Type, Data, StateData) ->
-    case (StateData#state.config)#config.logging of
-      true ->
-	  mod_muc_log:add_to_log(StateData#state.server_host,
-				 Type, Data, StateData#state.jid,
-				 make_opts(StateData));
-      false -> ok
-    end.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Users number checking
 
 tab_add_online_user(JID, StateData) ->
@@ -5525,18 +5202,9 @@ wrap(From, To, Packet, Node) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Multicast
 
-%% send_multiple(From, Server, Users, Packet) ->
-%%     JIDs = [ User#user.jid || {_, User} <- ?DICT:to_list(Users)],
-%%     ejabberd_router_multicast:route_multicast(From, Server, JIDs, Packet).
-
-send_wrapped_multiple(From, Users, Packet, Node, State) ->
-	{FromNick, Role} = get_participant_data(From, State),
+send_wrapped_multiple(From, _Users, Packet, _Node, State) ->
+	{FromNick, _Role} = get_participant_data(From, State),
 	send_muc_message(State,From,FromNick,Packet).
-    
-%    lists:foreach(
- %     fun({_, #user{jid = To}}) ->
-%	      send_wrapped(From, To, Packet, Node, State)
- %     end, ?DICT:to_list(Users)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Detect messange stanzas that don't have meaninful content
@@ -6180,7 +5848,7 @@ process_iq_muc_user_sub(From,set,_Lang,SubEl,StateData) ->
 				StateData#state.room, StateData#state.host,<<"0">>) of
             true ->
                 {result,[#xmlel{name = <<"delete_subscribe">> , attrs = [{<<"status">>,<<"true">>}],  children = []}],StateData};
-            N ->
+            _ ->
                 {result,[#xmlel{name = <<"delete_subscribe">> , attrs = [{<<"status">>,<<"false">>}], children = []}],StateData}
             end;
         _ ->
@@ -6223,7 +5891,7 @@ process_iq_muc_user_sub_v2(From,set,_Lang,SubEl,StateData) ->
 						children =  []}]},
 		ejabberd_router:route(StateData#state.jid, jid:replace_resource(From, <<"">>), Packet), 
                 {result,[#xmlel{name = <<"add_subscribe">> , attrs = [{<<"status">>,<<"true">>}],  children = []}],StateData};
-            O ->
+            _ ->
                 {result,[#xmlel{name = <<"add_subscribe">> , attrs = [{<<"status">>,<<"false">>}], children = []}],StateData}
         end
     end.

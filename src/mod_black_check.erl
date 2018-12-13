@@ -11,7 +11,7 @@
 
 -include("jlib.hrl").
 
-start(Host, Opts) ->
+start(Host, _Opts) ->
     ejabberd_hooks:add(privacy_check_packet, Host, ?MODULE,
 		       check_packet, 50).
 
@@ -23,10 +23,7 @@ stop(Host) ->
 %% If Dir = out, User@Server is the sender account (From).
 %% If Dir = in, User@Server is the destination account (To).
 check_packet(_, _User, _Server, _UserList,
-	     {#jid{luser = FromUser, lserver = FromServer} = From,
-	      #jid{luser = ToUser, lserver = ToServer} = To,
-              #xmlel{name = <<"message">>, attrs = Attrs}
-             },
+	     {From, To, #xmlel{name = <<"message">>, attrs = Attrs}},
 	     out) ->
     FromStr = jid:to_string(jid:replace_resource(To, <<"">>)),
     ToStr = jid:to_string(jid:replace_resource(From, <<"">>)),
@@ -35,9 +32,9 @@ check_packet(_, _User, _Server, _UserList,
 check_packet(_, _User, _Server, _UserList, _, _) ->
     allow.
 
-do_check_packet(FromStr, ToStr, <<"readmark">>) ->
+do_check_packet(_FromStr, _ToStr, <<"readmark">>) ->
     allow;
-do_check_packet(FromStr, ToStr, <<"error">>) ->
+do_check_packet(_FromStr, _ToStr, <<"error">>) ->
     allow;
 do_check_packet(FromStr, ToStr, _) ->
     case redis_link:hash_get(11, <<"blacklist:", FromStr/binary>>, ToStr) of

@@ -1119,12 +1119,6 @@ wait_for_bind({xmlstreamelement, El}, StateData) ->
 		      fsm_next_state(wait_for_bind, StateData);
 		  {accept_resource, R2} ->
                         JID = jid:make(U, StateData#state.server, R2),
-                        case catch qtalk_auth:check_multiple_login_user(U) of   
-                        false ->    
-                            catch update_push_flag(StateData#state.server,U,R2);   
-                        _ ->
-                            ok
-                        end,
                         StateData2 =
                             StateData#state{resource = R2, jid = JID},
                         case open_session(StateData2) of
@@ -3434,47 +3428,6 @@ record_user_show_tag(Packet,StateData) ->
     _ ->
             ok
     end.            
-
-
-update_push_flag(Server,User,Rescource) ->
-    qtalk_auth:kick_token_login_user(User,Server),
-    case str:str(Rescource,<<"Android">>) =/=0  of
-    true ->
-        update_push(User,Server,<<"android">>);
-    false ->
-        case str:str(Rescource,<<"iPhone">>) =/= 0 of
-        true ->
-            update_push(User,Server,<<"ios">>);
-        false ->
-            ok
-        end
-    end.
-
-update_push(User,Server,Key) ->
- case Key of
- <<"android">> ->
-     catch ejabberd_sql:sql_query(Server,
-        [<<"update person_user_mac_key set push_flag = 0 where user_name = '">>,User,<<"' and host = '">>,Server,<<"' and os = 'ios' ;">>]),
-     catch ejabberd_sql:sql_query(Server,
-        [<<"update person_user_mac_key set push_flag = 1 where user_name = '">>,User,<<"' and host = '">>,Server,<<"' and os = 'android' ;">>]),
-     catch ejabberd_sql:sql_query(Server,
-        [<<"update user_mac_key set push_flag = 0 where user_name = '">>,User,<<"' and host = '">>,Server,<<"' and os = 'ios' ;">>]),
-     catch ejabberd_sql:sql_query(Server,
-        [<<"update user_mac_key set push_flag = 1 where user_name = '">>,User,<<"' and host = '">>,Server,<<"' and os = 'android' ;">>]);
- <<"ios">> ->
-     catch ejabberd_sql:sql_query(Server,
-        [<<"update person_user_mac_key set push_flag = 1 where user_name = '">>,User,<<"' and host = '">>,Server,<<"' and os = 'ios' ;">>]),
-     catch ejabberd_sql:sql_query(Server,
-        [<<"update person_user_mac_key set push_flag = 0 where user_name = '">>,User,<<"' and host = '">>,Server,<<"' and os = 'android' ;">>]),
-     catch ejabberd_sql:sql_query(Server,
-        [<<"update user_mac_key set push_flag = 1 where user_name = '">>,User,<<"' and host = '">>,Server,<<"' and os = 'ios' ;">>]),
-     catch ejabberd_sql:sql_query(Server,
-        [<<"update user_mac_key set push_flag = 0 where user_name = '">>,User,<<"' and host = '">>,Server,<<"' and os = 'android' ;">>]);
-  _ ->
-    ok
- end.
-
-
 
 make_new_presence_packet(LServer,From,Packet,_Attrs) ->
     Num = mod_user_relation:get_users_friend_num(LServer,From#jid.luser, From#jid.lserver),
