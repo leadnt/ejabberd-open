@@ -1305,7 +1305,7 @@ session_established2(El, StateData) ->
                         _ ->
                                 jid:from_string(From)
                         end;
-                A ->
+                _ ->
                         NewStateData#state.jid
                 end,
 
@@ -1469,7 +1469,7 @@ handle_info(kick, StateName, StateData) ->
     Lang = StateData#state.lang,
     Xmlelement = ?SERRT_POLICY_VIOLATION(Lang, <<"has been kicked">>),
     handle_info({kick, <<"201">>, Xmlelement}, StateName, StateData);
-handle_info({kick, Code, Xmlelement}, _StateName, StateData) ->
+handle_info({kick, Code, _Xmlelement}, _StateName, StateData) ->
     Lang = StateData#state.lang,
     Reason = qtalk_public:get_reason_by_errcode(Code),
     Xmlelement2 = ?STREAM_KICK_ERRORT(<<"policy-violation">>, <<"">>, Code , Lang, Reason),
@@ -2520,37 +2520,7 @@ process_privacy_iq(From, To,
     ejabberd_router:route(To, From, jlib:iq_to_xml(IQRes)),
     NewStateData.
 
-resend_offline_messages(StateData,_) ->
-    catch qtalk_sql:del_muc_spool(StateData#state.server,StateData#state.user),
-    catch qtalk_sql:del_spool(StateData#state.server,StateData#state.user).
-
-
-resend_offline_messages(#state{ask_offline = true} = StateData) ->
-    catch qtalk_sql:del_muc_spool(StateData#state.server,StateData#state.user),
-    case ejabberd_hooks:run_fold(resend_offline_messages_hook,
-				 StateData#state.server, [],
-				 [StateData#state.user, StateData#state.server])
-    of
-      Rs -> %%when is_list(Rs) ->
-	  lists:foreach(fun ({route, From, To,
-			      #xmlel{} = Packet}) ->
-				Pass = case privacy_check_packet(StateData,
-								 From, To,
-								 Packet, in)
-					   of
-					 allow -> true;
-					 deny -> false
-				       end,
-				if Pass ->
-			%	       ejabberd_router:route(From, To, Packet);
-					ok;
-				   true -> ok
-				end
-			end,
-			Rs)
-    end;
-resend_offline_messages(StateData) ->
-    catch qtalk_sql:del_muc_spool(StateData#state.server,StateData#state.user),
+resend_offline_messages(_StateData,_) ->
     ok.
 
 resend_subscription_requests(#state{user = User,
@@ -2729,13 +2699,6 @@ fsm_limit_opts(Opts) ->
             undefined -> [];
 	    N -> [{max_queue, N}]
 	  end
-    end.
-
-bounce_messages() ->
-    receive
-      {route, From, To, El} ->
-	  ejabberd_router:route(From, To, El), bounce_messages()
-      after 0 -> ok
     end.
 
 process_compression_request(El, StateName, StateData) ->

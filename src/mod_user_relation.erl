@@ -10,7 +10,7 @@
 
 -record(friend_opts,{user,rec_msg_flag,vld_friend_flag,validate_quetion,validate_answer,version}).
 
-start(Host,Opts) ->
+start(Host, _Opts) ->
     gen_iq_handler:add_iq_handler(ejabberd_sm, Host,?NS_VER_FRI_MODE, ?MODULE, verify_friend_mode, no_queue),
     gen_iq_handler:add_iq_handler(ejabberd_local, Host,?NS_VER_FRI_MODE, ?MODULE, verify_friend_mode, no_queue),
 

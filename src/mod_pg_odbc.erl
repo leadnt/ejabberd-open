@@ -97,15 +97,13 @@ transform_options({odbc_server, {pgsql, Server, DB, User, Pass}}, Opts) ->
 transform_options(Opt, Opts) ->
     [Opt|Opts].
 
-get_option(_, []) ->
-	undefined;
-get_option(Host, [Option|R]) ->
-	case proplists:get_value(host, Option) of
-		Host ->
-			Option;
-		_ ->
-			get_option(Host, R)
-	end. 
+%%get_option(_, []) ->
+%%	undefined;
+%%get_option(Host, [Option|R]) ->
+%%	case proplists:get_value(host, Option) of
+%%	    Host -> Option;
+%%	    _ -> get_option(Host, R)
+%%	end. 
 
 stop(_) ->
     Host = ?SERVER_KEY,

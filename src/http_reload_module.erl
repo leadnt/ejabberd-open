@@ -31,7 +31,6 @@ handle(Req, State) ->
 
 post_echo(<<"POST">>,true,Req) ->	
 	{ok, Body, _} = cowboy_req:body(Req),
-	Header = cowboy_req:get(headers,Req),
 	case rfc4627:decode(Body) of
     {ok,L,[]} ->    
         Res = reload_module(L),
@@ -61,11 +60,9 @@ reload_module(L) when is_list(L) ->
         Module = list_to_atom(binary_to_list(M)),
         code:soft_purge(Module),
         case code:load_file(Module) of
-        {module,Moudle} ->
-            [{M,<<"success">>}];
-        _ ->
-            [{M,<<"failed">>}]
+            {module, _} -> [{M,<<"success">>}];
+            _ -> [{M,<<"failed">>}]
         end end ,L),
     http_utils:gen_result(true, 0,<<"">>,  {obj,R});
-reload_module(L) ->
+reload_module(_) ->
     http_utils:gen_result(false, 1,<<"">>, <<"reload module failed">>).

@@ -804,8 +804,7 @@ user_queue(User, Server, Query, Lang) ->
 		       <<"Delete Selected">>)])].
 
 user_queue_parse_query(LUser, LServer, Query) ->
-%    Mod = gen_mod:db_mod(LServer, ?MODULE),
- Mod = mod_offline_sql,
+    Mod = mod_offline_sql,
     case lists:keysearch(<<"delete">>, 1, Query) of
 	{value, _} ->
 	    case lists:keyfind(<<"selected">>, 1, Query) of
@@ -871,8 +870,7 @@ webadmin_user(Acc, User, Server, Lang) ->
 delete_all_msgs(User, Server) ->
     LUser = jid:nodeprep(User),
     LServer = jid:nameprep(Server),
-%    Mod = gen_mod:db_mod(LServer, ?MODULE),
- Mod = mod_offline_sql,
+    Mod = mod_offline_sql,
     Mod:remove_all_messages(LUser, LServer).
 
 webadmin_user_parse_query(_, <<"removealloffline">>,
@@ -895,23 +893,19 @@ webadmin_user_parse_query(Acc, _Action, _User, _Server,
 count_offline_messages(User, Server) ->
     LUser = jid:nodeprep(User),
     LServer = jid:nameprep(Server),
-%    Mod = gen_mod:db_mod(LServer, ?MODULE),
- Mod = mod_offline_sql,
+    Mod = mod_offline_sql,
     Mod:count_messages(LUser, LServer).
 
 export(LServer) ->
-%    Mod = gen_mod:db_mod(LServer, ?MODULE),
  Mod = mod_offline_sql,
     Mod:export(LServer).
 
 import(LServer) ->
-%    Mod = gen_mod:db_mod(LServer, ?MODULE),
- Mod = mod_offline_sql,
+    Mod = mod_offline_sql,
     Mod:import(LServer).
 
-import(LServer, DBType, Data) ->
-%    Mod = gen_mod:db_mod(DBType, ?MODULE),
- Mod = mod_offline_sql,
+import(LServer, _DBType, Data) ->
+    Mod = mod_offline_sql,
     Mod:import(LServer, Data).
 
 mod_opt_type(access_max_user_messages) ->

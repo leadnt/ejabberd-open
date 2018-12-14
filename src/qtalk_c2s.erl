@@ -30,14 +30,11 @@ do_check_lan_version(<<"QIM_PC">>,_Resource,_Version) ->
 %%%%%%%%%%% @date 2017-03
 %%%%%%%%%%% 设置redis用户key,用于http鉴权
 %%%%%%%%%%%-----------------------------------------------------------
-set_redis_user_key(Server,User,Resource,Key,Mac_key,Time) ->
-    catch redis_link:hash_set(Server,1,User,Resource,Key),
-%    catch redis_link:expire_time(Server,1,User,Time),
-    FUser = qtalk_public:concat(User,<<"@">>,Server),
-    catch redis_link:hash_set(Server,2,FUser,Key,Mac_key),
-    catch redis_link:hash_set(Server,2,User,Key,Mac_key).
- %   catch redis_link:expire_time(Server,2,User,Time).
-
+set_redis_user_key(Server, User, Resource, Key, Mac_key, _Time) ->
+    catch redis_link:hash_set(Server, 1, User, Resource, Key),
+    FUser = qtalk_public:concat(User, <<"@">>, Server),
+    catch redis_link:hash_set(Server, 2, FUser, Key, Mac_key),
+    catch redis_link:hash_set(Server, 2, User, Key, Mac_key).
 
 %%%%%%%%%%%-----------------------------------------------------------
 %%%%%%%%%%% @date 2017-03
@@ -73,7 +70,7 @@ make_new_PresenceEl(Server,User, El, Attrs) ->
 %%%%%%%%%%% 处理Carbon消息
 %%%%%%%%%%%-----------------------------------------------------------
 carbon_message(From,To,Packet) ->
-    #xmlel{name = Name, attrs = Attrs, children = Els} = Packet,
+    #xmlel{attrs = Attrs} = Packet,
     ReadType = fxml:get_attr_s(<<"read_type">>, Attrs),
     Type = fxml:get_attr_s(<<"type">>, Attrs),
     case ejabberd_sm:get_user_resources(From#jid.user,From#jid.server) of
@@ -105,75 +102,26 @@ do_carbon_message(From, To, Packet, Resources) ->
                 end
     end ,Rs).
 
-%carbon_consult_msg(From,To,Packet,Resoureces) ->
-%    #xmlel{attrs = Attrs,name = Name,children = Children} = Packet,
-%    case  fxml:get_attr_s(<<"carbon_message">>, Attrs) of
-%    <<"true">> ->
-%        ok;
-%    _ ->
-%        Rs = Resoureces -- [From#jid.lresource],
-%        lists:foreach(fun(R) ->
-%            NewTo = jlib:jid_replace_resource(From,R),
-%            Attrs1 = jlib:replace_from_to_attrs(jlib:jid_to_string(To), jlib:jid_to_string(NewTo), Attrs),
-%            NewPacket = #xmlel{name = Name, attrs = [{<<"carbon_message">>,<<"true">>}|Attrs1], children = Children},
-%            ejabberd_router:route(To, NewTo, NewPacket) end,Rs)
-%    end.
-
-
-clear_redis_user_key(Server,User,Resource) when Server =:= <<"">> ; User =:= <<"">>; Resource =:= <<"">> ->
-	ok;
-clear_redis_user_key(Server,User,Resource)  ->
-    case catch redis_link:hash_get(Server,1,User,Resource) of
-    {ok,undefined} ->
-                    ok;
-    {ok,Key} ->
-                    redis_link:hash_del(Server,1,User,Resource),
-    		    FUser = qtalk_public:concat(User,<<"@">>,Server),
-                    catch redis_link:hash_del(Server,2,FUser,Key),
-                    redis_link:hash_del(Server,2,User,Key);
-     _ ->
-                    ok
-     end.
-
 get_presence_show_tag(Presence) ->
     case fxml:get_path_s(Presence, [{elem, <<"show">>}, cdata]) of
-    <<"away">> -> <<"away">>;
-    <<"offline">> -> <<"offline">>;
-    <<"busy">> -> <<"busy">>;
-    <<"checkout">> -> <<"checkout">>;
-    <<"checkin">> -> <<"checkin">>;
-    <<"push">> -> <<"push">>;
-    <<"online">> -> <<"online">>;
-    <<"normal">> -> <<"normal">>;
-    _ -> <<"unknown">>
+        <<"away">> -> <<"away">>;
+        <<"offline">> -> <<"offline">>;
+        <<"busy">> -> <<"busy">>;
+        <<"checkout">> -> <<"checkout">>;
+        <<"checkin">> -> <<"checkin">>;
+        <<"push">> -> <<"push">>;
+        <<"online">> -> <<"online">>;
+        <<"normal">> -> <<"normal">>;
+        _ -> <<"unknown">>
     end.
 
-del_muc_spool() ->
-    ok.
-
-send_user_refused_msg() ->
-    ok.
-
-make_recv_reply_packet() ->
-    ok.
-
-make_new_presence_packet() ->
-    ok.
-
-kick_lower_version_user() ->
-    ok.
-
-
-check_consult_from(El,From,JID) ->
-	#xmlel{name = Name} = El,
-	case Name of
-	<<"message">> ->
-		case catch fxml:get_tag_attr_s(<<"type">>, El) of
-		<<"consult">> ->
-			El;
-		_ ->
-			'invalid-from'
-		end;
-	_ ->
-		'invalid-from'
-	end.
+check_consult_from(El, _From, _JID) ->
+    #xmlel{name = Name} = El,
+    case Name of
+        <<"message">> ->
+            case catch fxml:get_tag_attr_s(<<"type">>, El) of
+                <<"consult">> -> El;
+                _ -> 'invalid-from'
+            end;
+        _ -> 'invalid-from'
+    end.

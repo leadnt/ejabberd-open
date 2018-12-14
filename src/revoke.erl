@@ -12,35 +12,6 @@ revoke_message(From,To,Packet) ->
             revoke_chat_message(From,To,Packet)
     end.
 
-%%revoke_groupchat_message(_Server,From,To,Packet, UL) ->
-%%    send_kafka_msg(From,To,Packet, <<"groupchat">>, UL),
-%%    true.
-
-send_kafka_msg(From,To,Packet, T, UL) ->
-    Type = fxml:get_tag_attr_s(<<"type">>, Packet),
-    LFrom = From#jid.user,
-    LTo = To#jid.user,
-    From_host = From#jid.lserver,
-    To_host = To#jid.lserver,
-    LBody = fxml:element_to_binary(Packet),
-    LId = fxml:get_tag_attr_s(<<"id">>, fxml:get_subtag(Packet,<<"body">>)),
-    Time = qtalk_public:get_exact_timestamp(),
-    MsgContent = jiffy:encode({[{<<"m_from">>, LFrom},
-                                       {<<"from_host">>, From_host},
-                                       {<<"m_to">>, LTo},
-                                       {<<"to_host">>, To_host},
-                                       {<<"m_body">>, LBody},
-                                       {<<"create_time">>, Time},
-                                       {<<"type">>, <<"revoke">>},
-                                       {<<"subtype">>, T},
-                                       {<<"userlist">>, UL},
-                                       {<<"msg_id">>, LId}]}),
-    case T of
-        <<"chat">> -> catch spawn(send_kafka_msg,send_kafka_msg,[<<"custom_vs_hash_hosts_chat_message">>, Type, MsgContent]);
-        <<"groupchat">> -> catch spawn(send_kafka_msg,send_kafka_msg,[<<"custom_vs_hash_hosts_group_message">>, Type, MsgContent]);
-        _ -> ok
-    end.
-
 revoke_chat_message(From,To,Packet) ->
     Args = get_revoke_message_args(Packet),
     Msg_id = proplists:get_value("messageId",Args),
@@ -49,9 +20,7 @@ revoke_chat_message(From,To,Packet) ->
     update_msg_by_id(From#jid.lserver,From,To,Revoke_pkt,Msg_id).
 
 
-revoke_groupchat_message(Server,From,To,Packet, UL) ->
-%    send_kafka_msg(From,To,Packet, <<"groupchat">>),
-%    true.
+revoke_groupchat_message(Server,From,To,Packet, _UL) ->
     Args = get_revoke_message_args(Packet),
     Msg_id = proplists:get_value("messageId",Args),
     Msec = fxml:get_tag_attr_s(<<"msec_times">>, Packet),
@@ -93,7 +62,7 @@ update_msg_by_id(Server,From,To,Packet,Msg_id) ->
         _ -> ok
     end.
 
-update_muc_msg_by_id(Server, From, To,SPacket, Packet, Msg_id) ->
+update_muc_msg_by_id(Server, From, _To, _SPacket, Packet, Msg_id) ->
     case catch ejabberd_sql:sql_query(Server, [<<"select nick,muc_room_name,packet,msg_id,extract(epoch from create_time)::bigint from muc_room_history where msg_id = '">>, Msg_id,<<"';">>]) of
         {selected, _ , [[N,M,P,ID,Time]]}  ->
             Msec = fxml:get_tag_attr_s(<<"msec_times">>, Packet),

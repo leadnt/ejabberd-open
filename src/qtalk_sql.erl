@@ -25,8 +25,7 @@
 -export([insert_muc_vcard_info/7,clear_spool/1,clear_user_mac_key/1,clear_muc_spool/1,get_muc_msg_last_timestamp/2]).
 -export([delete_muc_last/2,get_white_list_users/1,update_no_insert/4,del_muc_spool/2,del_spool/2]).
 -export([list_users/1,get_flogin_user/1,insert_msg_by_table/9,get_password_by_host/2]).
--export([get_host_info/1,mask_push_kafka/5]).
-
+-export([get_host_info/1]).
 
 get_muc_users(LServer, Muc, Domain) ->
     ejabberd_sql:sql_query(LServer,
@@ -100,20 +99,6 @@ get_muc_vcard_info(LServer,Muc,Host) ->
         [<<"select show_name, muc_desc, muc_title, muc_pic, version from muc_vcard_info where muc_name = '">>,
          Muc, <<"' or muc_name = '">>, FMuc, <<"';">>]).
 
-insert_muc_msg_v2(LServer,Muc,Nick,Host,Packet,Have_sub,Size,Msg_ID,Time)->
-    ejabberd_sql:sql_query(LServer,
-            %%?SQL("insert into muc_room_history (muc_room_name,nick,host,packet,have_subject,size,msg_id,create_time) values"
-            %%    " (%(Muc)s,%(Nick)s,%(Host)s,%(Packet)s,%(Have_sub)s,%(Size)s,%(Msg_ID)s,%(Time)s);")).
-            [<<"insert into muc_room_history (muc_room_name,nick,host,packet,have_subject,size,msg_id,create_time) values ('">>,
-             Muc, <<"', '">>,
-             Nick, <<"', '">>,
-             Host, <<"', '">>,
-             Packet, <<"', '">>,
-             Have_sub, <<"', '">>,
-             Size, <<"', '">>,
-             Msg_ID, <<"', '">>,
-             Time, <<"');">>]).
-    
 get_user_register_mucs(LServer,User,Host) ->
     ejabberd_sql:sql_query(LServer,
         %%?SQL("select @(muc_name)s,@(domain)s from user_register_mucs where username=%(User)s and registed_flag = 1")).
@@ -379,44 +364,6 @@ update_no_insert(Table, Fields, Vals, Where) ->
       Reason ->
             Reason
     end.
-
-
-mask_push_kafka(From,To,Packet,ID,InsertTime)->
-    case catch fxml:get_subtag_cdata(Packet, <<"body">>) of
-    Msg  when Msg /= <<>>   ->
-        #xmlel{name = Name, attrs = Attrs, children = Els} = Packet,
-      %  Type = fxml:get_attr_s(<<"type">>, Attrs),
-        Type = <<"mask">>,
-        {ThirdDirection, CN, UsrType} = case fxml:get_tag_attr_s(<<"channelid">>, Packet) of
-            <<"">> -> {<<"recv">>, <<"qchat">>, <<"common">>};
-            ChannelId ->
-                {ok, {obj, ChannelIdJson}, []} = rfc4627:decode(ChannelId),
-                {proplists:get_value("d", ChannelIdJson, <<"recv">>),
-                 proplists:get_value("cn", ChannelIdJson, <<"qchat">>),
-                 proplists:get_value("usrType", ChannelIdJson, <<"common">>)}
-        end,
-
-        LFrom = jlib:jid_to_string(From),
-        LTo = jlib:jid_to_string(To),
-        Time = qtalk_public:pg2timestamp(InsertTime),
-
-
-        MsgContent = rfc4627:encode({obj, [{"m_from", LFrom},
-                                           {"from_host", From#jid.lserver},
-                                           {"m_to", LTo},
-                                           {"to_host", To#jid.lserver},
-                                           {"m_body", Msg},
-                                           {"create_time", InsertTime},
-                                           {"cn", CN},
-                                           {"d", ThirdDirection},
-                                           {"usrType", UsrType},
-                                           {"msg_id", ID}]}),
-
-        catch spawn(send_kafka_msg,send_kafka_msg,[<<"custom_vs_hash_hosts_chat_message">>, Type, MsgContent]);
-    _ ->
-        ok
-    end.
-    
 
 insert_msg_by_table(LServer,Table,From,From_host,To,To_host,MsgID,Time,Packet) ->
     catch ejabberd_sql:sql_query(LServer,

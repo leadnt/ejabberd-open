@@ -250,7 +250,7 @@ init([]) ->
     mnesia:create_table(temporarily_blocked,
 			[{ram_copies, [node()]},
 			 {attributes, record_info(fields, temporarily_blocked)}]),
-    
+
     Server = lists:nth(1,ejabberd_config:get_myhosts()),
     catch ets:new(domain_to_host, [set, named_table, public, {keypos, 2},{write_concurrency, true}, {read_concurrency, true}]),
     catch update_s2s_mapperd_host(Server),
