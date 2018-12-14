@@ -14,13 +14,13 @@ handle(Req) ->
     end.
 
 do_handle(Req) ->
-    {ok, Body, _} = cowboy_req:body(Req),
+    {ok, Body, Req1} = cowboy_req:body(Req),
     case rfc4627:decode(Body) of
     {ok,{obj,Args},[]}  ->
         Res = add_muc_users(Args),
-        http_utils:cowboy_req_reply_json(Res, Req);
+        http_utils:cowboy_req_reply_json(Res, Req1);
     _ ->
-        http_utils:cowboy_req_reply_json(http_utils:gen_fail_result(1,<<"Json format error.">>), Req)
+        http_utils:cowboy_req_reply_json(http_utils:gen_fail_result(1,<<"Json format error.">>), Req1)
     end.
 
 add_muc_users(Args) ->

@@ -27,7 +27,7 @@ target/
 Thumbs.db
 
 backup/qchat
-# deps/
+deps/
 ebin/
 Makefile
 config.status
@@ -37,6 +37,12 @@ vars.config
 *#
 
 *~
+
+include/XmppAddr.hrl
+src/XmppAddr.asn1db
+src/XmppAddr.erl
+src/eldap_filter_yecc.erl
+
 # package ignore (optional)
 # *.jar
 # *.war
