@@ -7,10 +7,9 @@
 -include("logger.hrl").
 
 init(_Transport, Req, []) ->
-	{ok, Req, undefined}.
+    {ok, Req, undefined}.
 
 handle(Req, State) ->
-    {Method, _} = cowboy_req:method(Req),
     {Path, _} = cowboy_req:path_info(Req),
     Req1 = handle_process(Path, Req),
     {ok, Req1, State}.

@@ -220,7 +220,7 @@ do_call(Pid, Message,Host,Tab) when is_pid(Pid) ->
 		?INFO_MSG("Lost Pid Message ~p ~n",[Message]),
 		check_redis_pid_alive(Host,Tab,Pid);
 	   Error ->
-		?INFO_MSG("Lost Pid Message ~p ~n",[Message]),
+		?INFO_MSG("Lost Pid Message ~p ~p~n",[Message, Error]),
        		{error, <<"unknown error">>}
 	    end;
     undefined ->
@@ -251,9 +251,8 @@ do_cast(Pid,Message) when is_pid(Pid)  ->
 	?INFO_MSG("redis queue is full ,abdon this Message ~p ~n",[Message])
     end;
 do_cast(Pid,Message) ->
-  ?INFO_MSG("get Error Pid ~p ~n",[Pid]),
-%  catch ets:delete_object(redis_pid,{Host,Tab,Pid}).
-	ok.
+    ?INFO_MSG("get Error Pid ~p ~p~n",[Pid, Message]),
+    ok.
 
 
 check_redis_pid_alive(Host,Tab,Pid) ->
@@ -279,23 +278,19 @@ no_time_out_call(Pid, Message,Host,Tab) when is_pid(Pid) ->
     case catch erlang:process_info(Pid,message_queue_len) of
     {message_queue_len,N} when is_integer(N) andalso N < 10000 ->
         case catch  gen_server:call(Pid, Message,infinity) of
-        L when is_list(L) ->
-            L;
-        {error, Error} ->
-             {error, Error};
-                {ok, Reply} ->
-            {ok, Reply};
-       {'EXIT',{noproc,_ }} ->
-        ?INFO_MSG("Lost Pid Message ~p ~n",[Message]),
-        check_redis_pid_alive(Host,Tab,Pid);
-       Error ->
-        ?INFO_MSG("Lost Pid Message ~p ~n",[Message]),
+        L when is_list(L) -> L;
+        {error, Error} -> {error, Error};
+        {ok, Reply} -> {ok, Reply};
+        {'EXIT',{noproc,_ }} ->
+            ?INFO_MSG("Lost Pid Message ~p ~n",[Message]),
+            check_redis_pid_alive(Host,Tab,Pid);
+        Error ->
+            ?INFO_MSG("Lost Pid Message ~p ~p~n",[Message, Error]),
             {error, <<"unknown error">>}
         end;
-    _ ->
-    ?INFO_MSG("redis queue is full ,abdon this Message ~p ~n",[Message])
+    _ -> ?INFO_MSG("redis queue is full ,abdon this Message ~p ~n",[Message])
     end;
 no_time_out_call(Pid, _Message,Host,Tab)  ->
-  ?INFO_MSG("get Error Pid ~p ~n",[Pid]),
+   ?INFO_MSG("get Error Pid ~p ~n",[Pid]),
    catch ets:delete_object(redis_pid,{Host,Tab,Pid}).
         

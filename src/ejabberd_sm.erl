@@ -297,7 +297,6 @@ set_offline_info(SID, User, Server, Resource, Info) ->
     LUser = jid:nodeprep(User),
     LServer = jid:nameprep(Server),
     LResource = jid:resourceprep(Resource),
-    Mod = get_sm_backend(LServer),
     set_session(SID, LUser, LServer, LResource, undefined, [offline | Info]).
 
 -spec get_offline_info(erlang:timestamp(), binary(), binary(),
@@ -410,16 +409,16 @@ handle_info({route, From, To, Packet}, State) ->
 	    ok
     end,
     {noreply, State};
-handle_info({register_iq_handler, Host, XMLNS, Module, Function}, State) ->
+handle_info({register_iq_handler, _Host, XMLNS, Module, Function}, State) ->
     ets:insert(sm_iqtable, {XMLNS, Module, Function}),
     {noreply, State};
-handle_info({register_iq_handler, Host, XMLNS, Module,
+handle_info({register_iq_handler, _Host, XMLNS, Module,
 	     Function, Opts},
 	    State) ->
     ets:insert(sm_iqtable,
 	       {XMLNS, Module, Function, Opts}),
     {noreply, State};
-handle_info({unregister_iq_handler, Host, XMLNS},
+handle_info({unregister_iq_handler, _Host, XMLNS},
 	    State) ->
     case ets:lookup(sm_iqtable, XMLNS) of
       [{_, Module, Function, Opts}] ->
@@ -859,8 +858,6 @@ make_sid() ->
 opt_type(sm_db_type) -> fun(T) -> ejabberd_config:v_db(?MODULE, T) end;
 opt_type(_) -> [sm_db_type].
 
-%% TODO
-
 get_user_present_resources_and_pid(LUser, LServer) ->
     Mod = get_sm_backend(LServer),
     Ss = online(Mod:get_sessions(LUser, LServer)),
@@ -876,19 +873,6 @@ insert_chat_msg(_Server,From, To,From_host,To_host, Msg,_Body,ID,InsertTime) ->
     case jlib:nodeprep(From) of
     error -> {error, invalid_jid};
     LUser ->
-        Packet = #xmlel{name = Name, attrs = Attrs, children = Els} = fxml_stream:parse_element(Msg),
-        Type = fxml:get_attr_s(<<"type">>, Attrs),
-        Realfrom = fxml:get_attr_s(<<"realfrom">>, Attrs),
-        Realto = fxml:get_attr_s(<<"realto">>, Attrs),
-        {ThirdDirection, CN, UsrType} = case fxml:get_tag_attr_s(<<"channelid">>, Packet) of
-            <<"">> -> {?DIRECTION, ?CN, ?USRTYPE};
-            ChannelId ->
-                {ok, {obj, ChannelIdJson}, []} = rfc4627:decode(ChannelId),
-                {proplists:get_value("d", ChannelIdJson, ?DIRECTION),
-                 proplists:get_value("cn", ChannelIdJson, ?CN),
-                 proplists:get_value("usrType", ChannelIdJson, ?USRTYPE)}
-        end,
-
         LFrom = ejabberd_sql:escape(LUser),
         LTo = ejabberd_sql:escape(To),
         LBody = ejabberd_sql:escape(Msg),
@@ -897,22 +881,6 @@ insert_chat_msg(_Server,From, To,From_host,To_host, Msg,_Body,ID,InsertTime) ->
         Time = qtalk_public:pg2timestamp(InsertTime),
 
         insert_msg2db(LServer, LFrom,LTo,From_host,To_host,LID,LBody,Time)
-
-        %%MsgContent = rfc4627:encode({obj, [{"m_from", LUser},
-        %%                                   {"from_host", From_host},
-        %%                                   {"m_to", To},
-        %%                                   {"to_host", To_host},
-        %%                                   {"m_body", Msg},
-        %%                                   {"type", Type},
-        %%                                   {"realfrom", Realfrom},
-        %%                                   {"realto", Realto},
-        %%                                   {"create_time", InsertTime},
-        %%                                   {"cn", CN},
-        %%                                   {"d", ThirdDirection},
-        %%                                   {"usrType", UsrType},
-        %%                                   {"msg_id", ID}]}),
-        %%catch spawn(send_kafka_msg,send_kafka_msg,[<<"custom_vs_hosts_chat_message">>, Type, MsgContent]),
-        %%catch spawn(send_kafka_msg,send_kafka_msg,[<<"custom_vs_hash_hosts_chat_message">>, Type, MsgContent])
     end.
 
 insert_msg2db(LServer, LFrom,LTo,From_host,To_host,LID,LBody,Time) ->
@@ -974,7 +942,7 @@ get_user_away_rescources(User, Server) ->
     end.
 
 try_insert_msg(From,To,Packet,Mbody,Now) ->
-    #xmlel{name = Name, attrs = Attrs, children = Els} = Packet,
+    #xmlel{attrs = Attrs, children = Els} = Packet,
     LServer = To#jid.lserver,
     insert_user_chat_msg(From,To,Packet,Attrs,Els,Mbody,LServer,Now).
 
@@ -1212,28 +1180,3 @@ get_server(From_host,To_host) ->
     if From_host =:= To_host -> From_host;
     true -> lists:nth(1,ejabberd_config:get_myhosts())
     end.
-
-check_carbon_msg(Packet) ->
-    case catch fxml:get_tag_attr_s(<<"carbon_message">>, Packet) of
-        <<"true">> -> true;
-        _ -> false
-    end.
-
-replace_subtag(#xmlel{name = Name} = Tag, Xmlel) ->
-    Xmlel#xmlel{children = [Tag | lists:keydelete(Name, #xmlel.name, Xmlel#xmlel.children)]}. 
-
-is_invitation(Els) ->                                                                                               
-    lists:foldl(fun (#xmlel{name = <<"x">>, attrs = Attrs} =
-             El,  
-             false) ->
-            case fxml:get_attr_s(<<"xmlns">>, Attrs) of
-              ?NS_MUC_USER ->
-                  case fxml:get_subtag(El, <<"invite">>) of
-                false -> false;
-                _ -> true 
-                  end; 
-              _ -> false
-            end; 
-            (_, Acc) -> Acc
-        end, 
-        false, Els).

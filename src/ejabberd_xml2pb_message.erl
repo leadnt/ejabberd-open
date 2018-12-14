@@ -6,53 +6,48 @@
 
 -export([xml2pb_msg/3,get_packet_time/2]).
 
-encode_pb_xmpp_msg(Msg_Type,Client_Type,Read_Type,Client_Version,Msg_ID,Channel_ID,Ex_INFO,Backup_Info,Carbon,Message,ID,Auto_Reply,Qchat_ID,Time, ErrCode) ->
-	Msg_Body = 
-		#messagebody{headers = 
-			  	ejabberd_xml2pb_public:encode_pb_stringheaders(
-                    [{<<"chatid">>,Msg_ID},
-                     {<<"qchatid">>,Qchat_ID},
+encode_pb_xmpp_msg(Msg_Type,Client_Type,Read_Type,Client_Version,Channel_ID,Ex_INFO,Backup_Info,Carbon,Message,ID,Auto_Reply,Qchat_ID,Time, ErrCode) ->
+    Msg_Body = #messagebody{headers = ejabberd_xml2pb_public:encode_pb_stringheaders(
+                    [{<<"qchatid">>,Qchat_ID},
                      {<<"channelid">>,Channel_ID},
                      {<<"extendInfo">>,Ex_INFO},
                      {<<"backupinfo">>,Backup_Info},
                      {<<"read_type">>,Read_Type},
-		     {<<"auto_reply">>,Auto_Reply},
-		     {<<"errcode">>,ErrCode},
+             {<<"auto_reply">>,Auto_Reply},
+             {<<"errcode">>,ErrCode},
                      {<<"carbon_message">>,Carbon}]),
-			     value  = Message},
-	
-	Xmpp = #xmppmessage{
-		messagetype = Msg_Type,
-  		clienttype = Client_Type,
-  		clientversion = Client_Version,
-  		messageid = ID,
-   		body = Msg_Body,
-   		receivedtime = Time},
-	message_pb:encode_xmppmessage(Xmpp).
+                 value  = Message},
+    
+    Xmpp = #xmppmessage{
+        messagetype = Msg_Type,
+          clienttype = Client_Type,
+          clientversion = Client_Version,
+          messageid = ID,
+           body = Msg_Body,
+           receivedtime = Time},
+    message_pb:encode_xmppmessage(Xmpp).
 
 struct_pb_xmpp_msg(BodyFlag,From,To,Type,PAttrs,BAttrs,Message,ID,Time, Packet) ->
-        Msg = list_to_binary(do_struct_pb_xmpp_msg(BodyFlag,PAttrs,BAttrs,Message,ID,Time, Packet, Type)),
-        RealFrom = proplists:get_value(<<"realfrom">>,PAttrs,undefined),
-        RealTo = proplists:get_value(<<"realto">>,PAttrs,undefined),
-        OriginFrom = proplists:get_value(<<"originfrom">>,PAttrs,undefined),
-        OriginTo = proplists:get_value(<<"originto">>,PAttrs,undefined),
-        OriginType = proplists:get_value(<<"origintype">>,PAttrs,undefined),
-        SendJid = proplists:get_value(<<"sendjid">>,PAttrs,undefined),
-        Pb_Msg = list_to_binary(ejabberd_xml2pb_public:encode_pb_protomessage(From,To,RealFrom,RealTo,OriginFrom, OriginTo, OriginType, ejabberd_xml2pb_public:set_type(Type),0,Msg, SendJid)),
-            
-        Opt = ejabberd_xml2pb_public:get_proto_header_opt(Pb_Msg),
-        list_to_binary(ejabberd_xml2pb_public:encode_pb_protoheader(Opt,Pb_Msg)).
+    Msg = list_to_binary(do_struct_pb_xmpp_msg(BodyFlag,PAttrs,BAttrs,Message,ID,Time, Packet, Type)),
+    RealFrom = proplists:get_value(<<"realfrom">>,PAttrs,undefined),
+    RealTo = proplists:get_value(<<"realto">>,PAttrs,undefined),
+    OriginFrom = proplists:get_value(<<"originfrom">>,PAttrs,undefined),
+    OriginTo = proplists:get_value(<<"originto">>,PAttrs,undefined),
+    OriginType = proplists:get_value(<<"origintype">>,PAttrs,undefined),
+    SendJid = proplists:get_value(<<"sendjid">>,PAttrs,undefined),
+    Pb_Msg = list_to_binary(ejabberd_xml2pb_public:encode_pb_protomessage(From,To,RealFrom,RealTo,OriginFrom, OriginTo, OriginType, ejabberd_xml2pb_public:set_type(Type),0,Msg, SendJid)),
+        
+    Opt = ejabberd_xml2pb_public:get_proto_header_opt(Pb_Msg),
+    list_to_binary(ejabberd_xml2pb_public:encode_pb_protoheader(Opt,Pb_Msg)).
 
 
 do_struct_pb_xmpp_msg(<<"nbodyStat">>,PAttrs,_BAttrs,_Message,_ID,Time, _Packet, _Type) ->
-        Msg_ID = proplists:get_value(<<"id">>,PAttrs,<<"1">>),
-        Client_Ver = proplists:get_value(<<"client_ver">>,PAttrs,<<"0">>),
-        encode_pb_xmpp_msg(1,
-                           message_pb:enum_to_int(clienttype, ejabberd_xml2pb_public:set_client_type(<<"">>)),
-                           <<"">>, binary_to_integer(Client_Ver),Msg_ID,
+    Client_Ver = proplists:get_value(<<"client_ver">>,PAttrs,<<"0">>),
+    encode_pb_xmpp_msg(1, message_pb:enum_to_int(clienttype, ejabberd_xml2pb_public:set_client_type(<<"">>)),
+                           <<"">>, binary_to_integer(Client_Ver),
                            <<"">>,<<"">>,<<"">>, <<"">>,<<"">>,<<"">>,<<"">>,<<"">>,Time, <<"0">>);
 do_struct_pb_xmpp_msg(_,PAttrs,BAttrs,Message,ID,Time, Packet, Type)  ->
-    {Msg_ID,Qchat_ID } = handle_msg_id(PAttrs),
+    Qchat_ID = handle_msg_id(PAttrs),
     Client_Type = proplists:get_value(<<"client_type">>,PAttrs),
     Client_Ver = proplists:get_value(<<"client_ver">>,PAttrs,<<"0">>),
     Carbon_Flag = proplists:get_value(<<"carbon_message">>,PAttrs,<<"">>),
@@ -84,15 +79,15 @@ do_struct_pb_xmpp_msg(_,PAttrs,BAttrs,Message,ID,Time, Packet, Type)  ->
     end,
     encode_pb_xmpp_msg(binary_to_integer(Msg_Type),
                        message_pb:enum_to_int(clienttype,ejabberd_xml2pb_public:set_client_type(ClientType)),
-                       Read_Type,   binary_to_integer(Client_Ver),    Msg_ID, 
-                       Channel_ID,  Ex_INFO,   Backup_Info,  
-                       Carbon_Flag, Message,   ID,   Auto_Reply , Qchat_ID,Time, ErrCode).
+                       Read_Type, binary_to_integer(Client_Ver), 
+                       Channel_ID, Ex_INFO, Backup_Info, 
+                       Carbon_Flag, Message, ID, Auto_Reply, Qchat_ID,Time, ErrCode).
         
 xml2pb_msg(From,To,Packet) ->
     case fxml:get_attr(<<"type">>,Packet#xmlel.attrs) of
     false ->
         <<"">>;
-    {Value,Type} ->
+    {_Value, Type} ->
         case fxml:get_subtag(Packet,<<"body">>) of
         false ->
             case Type of 
@@ -118,25 +113,14 @@ xml2pb_msg(From,To,Packet) ->
 
 
 handle_msg_id(PAttrs) ->
-    Msg_ID = proplists:get_value(<<"chatid">>,PAttrs,<<"">>),
     Qchat_ID = proplists:get_value(<<"qchatid">>,PAttrs,<<"">>),
-        ?DEBUG("Msg_ID ~p ,Qchat_ID   ~p ~n",[Msg_ID,Qchat_ID ]),
-    case {Msg_ID,Qchat_ID} of
-    {<<"">>,<<"">>} ->
-        {<<"">>,<<"">>};
-    {<<"">>,QI} when is_binary(QI)  ->
-        {QI,QI};
-    {<<"4">>,_} ->
-        {<<"4">>,<<"4">>};
-    {<<"5">>,_} ->
-        {<<"5">>,<<"5">>};
-    {V ,_ } when is_binary(V) ->
-        {V,V};
-    _ ->
-        {<<"">>,<<"">>}
+    case Qchat_ID of
+        <<"">> -> <<"">>;
+        V when is_binary(V) -> V;
+        _ -> <<"">>
     end.
 
-get_packet_time(Packet,PAttrs) ->
+get_packet_time(_Packet, PAttrs) ->
     case proplists:get_value(<<"msec_times">>,PAttrs) of
         undefined -> qtalk_public:get_exact_timestamp();
         T -> binary_to_integer(T)

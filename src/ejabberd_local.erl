@@ -223,20 +223,20 @@ handle_info({unregister_route, Host},   State) ->
         ejabberd_hooks:delete(local_send_to_resource_hook, Host,ejabberd_local, bounce_resource_packet, 100),
 
     {noreply, State};
-handle_info({register_iq_handler, Host, XMLNS, Module,
+handle_info({register_iq_handler, _Host, XMLNS, Module,
 	     Function},
 	    State) ->
     ets:insert(?IQTABLE, {XMLNS, Module, Function}),
     catch mod_disco:register_feature(XMLNS),
     {noreply, State};
-handle_info({register_iq_handler, Host, XMLNS, Module,
+handle_info({register_iq_handler, _Host, XMLNS, Module,
 	     Function, Opts},
 	    State) ->
     ets:insert(?IQTABLE,
 	       {XMLNS, Module, Function, Opts}),
     catch mod_disco:register_feature(XMLNS),
     {noreply, State};
-handle_info({unregister_iq_handler, Host, XMLNS},State) ->
+handle_info({unregister_iq_handler, _Host, XMLNS},State) ->
     case ets:lookup(?IQTABLE, XMLNS) of
       [{_, Module, Function, Opts}] ->
 	  gen_iq_handler:stop_iq_handler(Module, Function, Opts);

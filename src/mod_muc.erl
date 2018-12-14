@@ -161,15 +161,11 @@ forget_room(ServerHost, Host, Name) ->
     Mod = gen_mod:db_mod(LServer, ?MODULE),
     Mod:forget_room(LServer, Host, Name).
 
-process_iq_disco_items(Host, From, To,
-		       #iq{lang = Lang} = IQ) ->
-    Rsm = jlib:rsm_decode(IQ),
-    DiscoNode = fxml:get_tag_attr_s(<<"node">>, IQ#iq.sub_el),
+process_iq_disco_items(_Host, From, To, IQ) ->
     Res = IQ#iq{type = result,
 		sub_el =
 		    [#xmlel{name = <<"query">>,
 			    attrs = [{<<"xmlns">>, ?NS_DISCO_ITEMS}],
-			%    children = iq_disco_items(Host, From, Lang, DiscoNode, Rsm)}]},
 		         children = []}]},
     ejabberd_router:route(To, From, jlib:iq_to_xml(Res)).
 
@@ -590,22 +586,6 @@ do_route1(Host, ServerHost, Access, HistorySize, RoomShaper,
 	    end
     end.
 
--spec is_create_request(xmlel()) -> boolean().
-is_create_request(#xmlel{name = <<"presence">>} = Packet) ->
-    <<"">> == fxml:get_tag_attr_s(<<"type">>, Packet);
-is_create_request(#xmlel{name = <<"iq">>} = Packet) ->
-    case jlib:iq_query_info(Packet) of
-	#iq{type = set, xmlns = ?NS_MUCSUB,
-	    sub_el = #xmlel{name = <<"subscribe">>}} ->
-	    true;
-	#iq{type = get, xmlns = ?NS_MUC_OWNER, sub_el = SubEl} ->
-	    [] == fxml:remove_cdata(SubEl#xmlel.children);
-	_ ->
-	    false
-    end;
-is_create_request(_) ->
-    false.
-
 check_user_can_create_room(ServerHost, AccessCreate,
 			   From, _RoomID) ->
     case acl:match_rule(ServerHost, AccessCreate, From) of
@@ -627,23 +607,6 @@ get_rooms(ServerHost, Host) ->
     LServer = jid:nameprep(ServerHost),
     Mod = gen_mod:db_mod(LServer, ?MODULE),
     Mod:get_rooms(LServer, Host).
-
-load_permanent_rooms(Host, ServerHost, Access,
-		     HistorySize, RoomShaper) ->
-    lists:foreach(
-      fun(R) ->
-		{Room, Host} = R#muc_room.name_host,
-		case mnesia:dirty_read(muc_online_room, {Room, Host}) of
-		    [] ->
-			{ok, Pid} = mod_muc_room:start(Host,
-				ServerHost, Access, Room,
-				HistorySize, RoomShaper,
-				R#muc_room.opts),
-			register_room(Host, Room, Pid);
-		    _ -> ok
-		end
-	end,
-	get_rooms(ServerHost, Host)).
 
 start_new_room(Host, ServerHost, Access, Room,
 	    HistorySize, RoomShaper, From,
@@ -705,88 +668,6 @@ iq_disco_info(ServerHost, Lang) ->
 		[]
 	end.
 
-iq_disco_items(Host, From, Lang, <<>>, none) ->
-    Rooms = get_vh_rooms(Host),
-    case erlang:length(Rooms) < ?MAX_ROOMS_DISCOITEMS of
-	true ->
-	    iq_disco_items_list(Host, Rooms, {get_disco_item, all, From, Lang});
-	false ->
-	    iq_disco_items(Host, From, Lang, <<"nonemptyrooms">>, none)
-    end;
-iq_disco_items(Host, From, Lang, <<"nonemptyrooms">>, none) ->
-    XmlEmpty = #xmlel{name = <<"item">>,
-				   attrs =
-				       [{<<"jid">>, <<"conference.localhost">>},
-					{<<"node">>, <<"emptyrooms">>},
-					{<<"name">>, translate:translate(Lang, <<"Empty Rooms">>)}],
-				   children = []},
-    Query = {get_disco_item, only_non_empty, From, Lang},
-    [XmlEmpty | iq_disco_items_list(Host, get_vh_rooms(Host), Query)];
-iq_disco_items(Host, From, Lang, <<"emptyrooms">>, none) ->
-    iq_disco_items_list(Host, get_vh_rooms(Host), {get_disco_item, 0, From, Lang});
-iq_disco_items(Host, From, Lang, _DiscoNode, Rsm) ->
-    {Rooms, RsmO} = get_vh_rooms(Host, Rsm),
-    RsmOut = jlib:rsm_encode(RsmO),
-    iq_disco_items_list(Host, Rooms, {get_disco_item, all, From, Lang}) ++ RsmOut.
-
-iq_disco_items_list(Host, Rooms, Query) ->
-    lists:zf(fun (#muc_online_room{name_host =
-				       {Name, _Host},
-				   pid = Pid}) ->
-		     case catch gen_fsm:sync_send_all_state_event(Pid,
-								  Query,
-								  100)
-			 of
-		       {item, Desc} ->
-			   flush(),
-			   {true,
-			    #xmlel{name = <<"item">>,
-				   attrs =
-				       [{<<"jid">>,
-					 jid:to_string({Name, Host,
-							     <<"">>})},
-					{<<"name">>, Desc}],
-				   children = []}};
-		       _ -> false
-		     end
-	     end, Rooms).
-
-get_vh_rooms(Host, #rsm_in{max=M, direction=Direction, id=I, index=Index})->
-    AllRooms = lists:sort(get_vh_rooms(Host)),
-    Count = erlang:length(AllRooms),
-    Guard = case Direction of
-		_ when Index =/= undefined -> [{'==', {element, 2, '$1'}, Host}];
-		aft -> [{'==', {element, 2, '$1'}, Host}, {'>=',{element, 1, '$1'} ,I}];
-		before when I =/= []-> [{'==', {element, 2, '$1'}, Host}, {'=<',{element, 1, '$1'} ,I}];
-		_ -> [{'==', {element, 2, '$1'}, Host}]
-	    end,
-    L = lists:sort(
-	  mnesia:dirty_select(muc_online_room,
-			      [{#muc_online_room{name_host = '$1', _ = '_'},
-				Guard,
-				['$_']}])),
-    L2 = if
-	     Index == undefined andalso Direction == before ->
-		 lists:reverse(lists:sublist(lists:reverse(L), 1, M));
-	     Index == undefined ->
-		 lists:sublist(L, 1, M);
-	     Index > Count  orelse Index < 0 ->
-		 [];
-	     true ->
-		 lists:sublist(L, Index+1, M)
-	 end,
-    if L2 == [] -> {L2, #rsm_out{count = Count}};
-       true ->
-	   H = hd(L2),
-	   NewIndex = get_room_pos(H, AllRooms),
-	   T = lists:last(L2),
-	   {F, _} = H#muc_online_room.name_host,
-	   {Last, _} = T#muc_online_room.name_host,
-	   {L2,
-	    #rsm_out{first = F, last = Last, count = Count,
-		     index = NewIndex}}
-    end.
-
 get_subscribed_rooms(ServerHost, Host, From) ->
     Rooms = get_rooms(ServerHost, Host),
     BareFrom = jid:remove_resource(From),
@@ -800,21 +681,6 @@ get_subscribed_rooms(ServerHost, Host, From) ->
 	 (_) ->
 	      []
       end, Rooms).
-
-%% @doc Return the position of desired room in the list of rooms.
-%% The room must exist in the list. The count starts in 0.
-%% @spec (Desired::muc_online_room(), Rooms::[muc_online_room()]) -> integer()
-get_room_pos(Desired, Rooms) ->
-    get_room_pos(Desired, Rooms, 0).
-
-get_room_pos(Desired, [HeadRoom | _], HeadPosition)
-    when Desired#muc_online_room.name_host ==
-	   HeadRoom#muc_online_room.name_host ->
-    HeadPosition;
-get_room_pos(Desired, [_ | Rooms], HeadPosition) ->
-    get_room_pos(Desired, Rooms, HeadPosition + 1).
-
-flush() -> receive _ -> flush() after 0 -> ok end.
 
 -define(XFIELD(Type, Label, Var, Val),
 	#xmlel{name = <<"field">>,
@@ -948,41 +814,10 @@ broadcast_service_message(Host, Msg) ->
 
 
 get_vh_rooms(Host) ->
-  %  mnesia:dirty_select(muc_online_room,
-%			[{#muc_online_room{name_host = '$1', _ = '_'},
-%			  [{'==', {element, 2, '$1'}, Host}],
-%			  ['$_']}]).
     mod_muc_redis:get_vh_rooms(Host).
 
 
-clean_table_from_bad_node(Node) ->
-    ok.
- %   F = fun() ->
-%		Es = mnesia:select(
-%		       muc_online_room,
-%		       [{#muc_online_room{pid = '$1', _ = '_'},
-%			 [{'==', {node, '$1'}, Node}],
-%			 ['$_']}]),
-%		lists:foreach(fun(E) ->
-%				      mnesia:delete_object(E)
-%			      end, Es)
-%        end,
-%    mnesia:async_dirty(F).
-
 clean_table_from_bad_node(Node, Host) ->
-%    F = fun() ->
-%		Es = mnesia:select(
-%		       muc_online_room,
-%		       [{#muc_online_room{pid = '$1',
-%					  name_host = {'_', Host},
-%					  _ = '_'},
-%			 [{'==', {node, '$1'}, Node}],
-%			 ['$_']}]),
-%		lists:foreach(fun(E) ->
-%				      mnesia:delete_object(E)
-%			      end, Es)
-%        end,
-%    mnesia:async_dirty(F).
     mod_muc_redis:clean_table_from_node(Node,Host).
 
 
@@ -1122,7 +957,7 @@ update_user_affiliation(<<"update">>,Muc,JID,Aff) ->
     _ ->
         ok
     end;
-update_user_affiliation(<<"delete">>,Muc,JID,Aff) ->
+update_user_affiliation(<<"delete">>, Muc, JID, _Aff) ->
     case catch ets:lookup(muc_affiliation,Muc) of
     [{_,L}] when is_list(L) andalso L =/= [] ->
         L1 = lists:keydelete(JID,1,L),
@@ -1130,7 +965,7 @@ update_user_affiliation(<<"delete">>,Muc,JID,Aff) ->
     _ ->
         ok
     end;
-update_user_affiliation(_,Muc,JID,Aff) ->
+update_user_affiliation(_, _Muc, _JID, _Aff) ->
     ok.
 
 
@@ -1154,7 +989,7 @@ route(From,To,Packet) ->
     [{ _,#state{host = Host, server_host = ServerHost,
         access = Access, default_room_opts = DefRoomOpts,
         history_size = HistorySize,
-        room_shaper = RoomShaper} = State}] ->
+        room_shaper = RoomShaper}}] ->
             case catch do_route(Host, ServerHost, Access, HistorySize, RoomShaper,
                 From, To, Packet, DefRoomOpts) of
             {'EXIT', Reason} ->
@@ -1167,7 +1002,7 @@ route(From,To,Packet) ->
         self() ! {From ,To ,Packet}
     end.
 
-iq_get_user_mucs(ServerHost, Host, From, Lang) ->
+iq_get_user_mucs(_ServerHost, _Host, From, _Lang) ->
     Mucs =
         case catch qtalk_sql:get_user_register_mucs(From#jid.lserver,From#jid.luser, From#jid.lserver) of
         {selected,_,Res}  when is_list(Res) ->
@@ -1227,7 +1062,7 @@ do_recreate_muc_room(ServerHost,Host,Room,From,Nick,Packet,Flag) ->
         end
     end.
 
-send_user_room_packet(From,To,Rooms) ->
+send_user_room_packet(From, _To, Rooms) ->
     NewRooms =
         lists:foldl(fun([R,_H],Acc) ->
             case Acc of
@@ -1257,8 +1092,7 @@ send_user_room_packet(From,To,Rooms) ->
 
 
 make_cheat_presence_packet(JID,User,Server,Muc) ->
-    Packet =
-        #xmlel{name = <<"presence">>,
+    #xmlel{name = <<"presence">>,
             attrs = [{<<"priority">>,<<"5">>},{<<"version">>,<<"2">>}],
                 children = [
                 #xmlel{name = <<"x">>,
@@ -1271,18 +1105,14 @@ make_cheat_presence_packet(JID,User,Server,Muc) ->
                                     {<<"role">>,<<"participant">>}],children =  []},
                             #xmlel{name = <<"status">>,attrs = [{<<"code">>, <<"110">>}],children = []}]}]}.
 
+handle_recreate_muc(Server, Muc, Host, From, Nick, Packet) ->
+    handle_recreate_muc(Server, Muc, Host, From, Nick, Packet, true).
 
-
-
-handle_recreate_muc(Server,Muc,Host,From,Nick,Packet) ->
-    handle_recreate_muc(Server,Muc,Host,From,Nick,Packet,true).
-
-handle_recreate_muc(Server,Muc,Host,From,Nick,Packet,Flag) ->
+handle_recreate_muc(Server, Muc, Host, From, Nick, Packet, _Flag) ->
     case catch ets:lookup(muc_opts, Host) of
-    [{ _,#state{host = Host, server_host = ServerHost,
-        access = Access, default_room_opts = DefRoomOpts,
+    [{ _,#state{host = Host, access = Access, default_room_opts = DefRoomOpts,
         history_size = HistorySize,
-        room_shaper = RoomShaper} = State}] ->
+        room_shaper = RoomShaper}}] ->
         {ok, Pid} =  start_new_room(Host, Server, Access, Muc, HistorySize,  RoomShaper, From,  Nick, DefRoomOpts),
         register_room(Host, Muc, Pid),
         ?INFO_MSG("Recreate Muc ~p ~n",[Muc]),

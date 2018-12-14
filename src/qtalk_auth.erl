@@ -94,4 +94,3 @@ set_user_mac_key(Server,User,Key) ->
     _ ->
         catch redis_link:hash_set(Server,2,UTkey,Key,qtalk_public:get_timestamp())
     end.
-

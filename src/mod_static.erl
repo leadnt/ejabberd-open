@@ -13,6 +13,7 @@
 %% ------------------------------------------------------------------
 
 -export([start/2,stop/1,start_link/1]).
+-export([depends/2, mod_opt_type/1]).
 
 -export([
         add_record/2,
@@ -42,12 +43,12 @@
 %% ------------------------------------------------------------------
 
 start(Host,Opts) ->
-	Proc = get_proc_name(Host),
-	ChildSpec = {Proc,{?MODULE, start_link, [Opts]}, temporary,1000,worker,[?MODULE]},
-	{ok,_Pid} = supervisor:start_child(ejabberd_sup, ChildSpec).
+    Proc = get_proc_name(Host),
+    ChildSpec = {Proc,{?MODULE, start_link, [Opts]}, temporary,1000,worker,[?MODULE]},
+    {ok,_Pid} = supervisor:start_child(ejabberd_sup, ChildSpec).
 
 stop(Host) ->
-	Proc = get_proc_name(Host),
+    Proc = get_proc_name(Host),
     supervisor:terminate_child(ejabberd_sup, Proc),
     supervisor:delete_child(ejabberd_sup, Proc).
 
@@ -131,5 +132,9 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
 get_proc_name(Host) ->
-	gen_mod:get_module_proc(Host, ?MODULE).
+    gen_mod:get_module_proc(Host, ?MODULE).
 
+depends(_Host, _Opts) ->
+    [].
+
+mod_opt_type(_) -> [].
