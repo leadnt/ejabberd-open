@@ -382,8 +382,6 @@ get_subscribed(FsmRef) ->
 					 get_subscribed, 1000).
 
 wait_for_stream({xmlstreamstart, _Name, Attrs}, StateData) ->
-	?DEBUG("Attrs ~p ~n",[Attrs]),
-    DefaultLang = ?MYLANG,
     case fxml:get_attr_s(<<"xmlns:stream">>, Attrs) of
 	?NS_STREAM ->
 	    Server =
@@ -496,10 +494,10 @@ wait_for_stream({xmlstreamstart, _Name, Attrs}, StateData) ->
 					false ->
 					    []
 				    end,
-				    StreamFeatures1 = TLSFeature ++ CompressFeature ++ Mechs,
-				    StreamFeatures = ejabberd_hooks:run_fold(c2s_stream_features,
-					    Server, StreamFeatures1, [Server]),
-					
+                                   StreamFeatures1 = TLSFeature ++ CompressFeature ++ Mechs,
+                                   ejabberd_hooks:run_fold(c2s_stream_features,
+                                           Server, StreamFeatures1, [Server]),
+
  	                            User = fxml:get_attr_s(<<"user">>, Attrs),
             			    Sockmod = case TLS of
 	                	    true ->
@@ -561,71 +559,46 @@ wait_for_stream({xmlstreamstart, _Name, Attrs}, StateData) ->
 						CompressFeature ++
 						ejabberd_hooks:run_fold(c2s_post_auth_features,
 						    Server, [], [Server]),
-					    StreamFeatures = ejabberd_hooks:run_fold(c2s_stream_features,
+					    ejabberd_hooks:run_fold(c2s_stream_features,
 						    Server, StreamFeatures1, [Server]),
-					%    send_element(StateData,
-					%	#xmlel{name = <<"stream:features">>,
-					%	    attrs = [],
-					%	    children = StreamFeatures}),
 					    fsm_next_state(wait_for_bind,
 						StateData#state{server = Server, lang = Lang});
 					_ ->
-		%			    send_element(StateData,
-		%				#xmlel{name = <<"stream:features">>,
-		%				    attrs = [],
-		%				    children = []}),
 					    fsm_next_state(session_established,
 						StateData#state{server = Server, lang = Lang})
 				    end
 			    end;
 			_ ->
-			    %send_stream_end(StateData),
-                send_stream_end(StateData, 222, <<"vresion is error">>),
-		        {stop, normal, StateData}
+                            send_stream_end(StateData, 222, <<"vresion is error">>),
+		            {stop, normal, StateData}
                 
 		    end;
 		true ->
 		    IP = StateData#state.ip,
-		    {true, LogReason, ReasonT} = IsBlacklistedIP,
+		    {true, LogReason, _ReasonT} = IsBlacklistedIP,
 		    ?INFO_MSG("Connection attempt from blacklisted IP ~s: ~s",
 			[jlib:ip_to_list(IP), LogReason]),
- 	  		%send_stream_end(StateData),
-            send_stream_end(StateData, 222, <<"Connection attempt from blacklisted IP">>),
-%		    send_header(StateData, Server, StreamVersion, DefaultLang),
-%		    send_element(StateData, ?POLICY_VIOLATION_ERR(Lang, ReasonT)),
+                    send_stream_end(StateData, 222, <<"Connection attempt from blacklisted IP">>),
 		    {stop, normal, StateData};
 		_ ->
-            send_stream_end(StateData, 222, <<"host is not surport">>),
-%			send_stream_end(StateData),
-%		    send_header(StateData, ?MYNAME, StreamVersion, DefaultLang),
-%		    send_element(StateData, ?HOST_UNKNOWN_ERR),
+                    send_stream_end(StateData, 222, <<"host is not surport">>),
 		    {stop, normal, StateData}
 	    end;
 	_ ->
-%		send_stream_end(StateData),
-        send_stream_end(StateData, 222, <<"not a stream">>),
-%	    send_header(StateData, ?MYNAME, <<"">>, DefaultLang),
-%	    send_element(StateData, ?INVALID_NS_ERR),
+            send_stream_end(StateData, 222, <<"not a stream">>),
 	    {stop, normal, StateData}
     end;
 wait_for_stream(timeout, StateData) ->
     send_stream_end(StateData, 102, <<"wait for stream timeout">>),
     {stop, normal, StateData};
 wait_for_stream({xmlstreamelement, _}, StateData) ->
-%	send_stream_end(StateData),
     send_stream_end(StateData, 222, <<"wait for stream for xmlstreamelement">>),
-  %  send_element(StateData, ?INVALID_XML_ERR),
     {stop, normal, StateData};
 wait_for_stream({xmlstreamend, _}, StateData) ->
     send_stream_end(StateData, 222, <<"wait for stream for streamend">>),
-%	send_stream_end(StateData),
-  %  send_element(StateData, ?INVALID_XML_ERR),
     {stop, normal, StateData};
 wait_for_stream({xmlstreamerror, _}, StateData) ->
     send_stream_end(StateData, 222, <<"wait for stream for xmlstreamerror">>),
-%	send_stream_end(StateData),
-%    send_header(StateData, ?MYNAME, <<"1.0">>, <<"">>),
-%    send_element(StateData, ?INVALID_XML_ERR),
     {stop, normal, StateData};
 wait_for_stream(closed, StateData) ->
     send_stream_end(StateData, 102, <<"wait for stream for closed">>),
@@ -923,21 +896,13 @@ wait_for_feature_request({xmlstreamelement, El},
 								  StateData#state.tls_options)]
 		    end,
 	  Socket = StateData#state.socket,
-%	  BProceed = fxml:element_to_binary(#xmlel{name = <<"proceed">>,
-%						  attrs = [{<<"xmlns">>, ?NS_TLS}]}),
-%
-%	  TLSSocket = (StateData#state.sockmod):starttls(Socket,
-%							 TLSOpts,
-%							 BProceed),
 							 
 	  ?DEBUG("Socket ~p ~n",[Socket]),
 	  BProceed = send_startTLS(StateData,StateData#state.user,StateData#state.server),
 	  TLSSocket = (StateData#state.sockmod):starttls('probuff',Socket,
                              TLSOpts,
                              BProceed),
-	  ?DEBUG("TLSSocket ~p ~n",[TLSSocket]),	
 
-%%	  fsm_next_state(wait_for_stream,
 	  fsm_next_state(wait_for_feature_request,
 			 StateData#state{socket = TLSSocket,
 					 streamid = new_id(),
@@ -948,16 +913,11 @@ wait_for_feature_request({xmlstreamelement, El},
 	  process_compression_request(El, wait_for_feature_request, StateData);
       _ ->
 	  if TLSRequired and not TLSEnabled ->
-		 Lang = StateData#state.lang,
-	%	 send_element(StateData,
-	%		      ?POLICY_VIOLATION_ERR(Lang,
-	%					    <<"Use of STARTTLS required">>)),
-%		send_stream_end(StateData),     					    
-        send_stream_end(StateData, 222, <<"wait for feature for tls error">>),
-		 {stop, normal, StateData};
-	     true ->
-		 process_unauthenticated_stanza(StateData, El),
-		 fsm_next_state(wait_for_feature_request, StateData)
+              send_stream_end(StateData, 222, <<"wait for feature for tls error">>),
+              {stop, normal, StateData};
+          true ->
+              process_unauthenticated_stanza(StateData, El),
+              fsm_next_state(wait_for_feature_request, StateData)
 	  end
     end;
 wait_for_feature_request(timeout, StateData) ->
@@ -969,8 +929,6 @@ wait_for_feature_request({xmlstreamend, _Name},
     {stop, normal, StateData};
 wait_for_feature_request({xmlstreamerror, _},
 			 StateData) ->
-%    send_element(StateData, ?INVALID_XML_ERR),
-%     send_stream_end(StateData),     
      send_stream_end(StateData, 222, <<"wait for feature for xmlstreamerror">>),  
     {stop, normal, StateData};
 wait_for_feature_request(closed, StateData) ->
@@ -986,7 +944,6 @@ wait_for_sasl_response({xmlstreamelement, #xmlel{name = Name} = El}, StateData)
 wait_for_sasl_response({xmlstreamelement, El},
 		       StateData) ->
     #xmlel{name = Name, attrs = Attrs, children = Els} = El,
-    ?DEBUG("EL ~p ~n",[El]),
     case {fxml:get_attr_s(<<"xmlns">>, Attrs), Name} of
       {?NS_SASL, <<"response">>} ->
 	  ClientIn = jlib:decode_base64(fxml:get_cdata(Els)),
@@ -1142,7 +1099,7 @@ wait_for_bind({xmlstreamelement, #xmlel{name = Name, attrs = Attrs} = El},
 wait_for_bind({xmlstreamelement, El}, StateData) ->
 	?DEBUG("El ~p ~n",[El]),
     case jlib:iq_query_info(El) of
-      #iq{type = set, lang = Lang, xmlns = ?NS_BIND, sub_el = SubEl,id = ID} =
+      #iq{type = set, lang = Lang, xmlns = ?NS_BIND, sub_el = SubEl} =
 	  IQ ->
 	  U = StateData#state.user,
 	  R1 = fxml:get_path_s(SubEl,
@@ -1172,12 +1129,6 @@ wait_for_bind({xmlstreamelement, El}, StateData) ->
 		      fsm_next_state(wait_for_bind, StateData);
 		  {accept_resource, R2} ->
                         JID = jid:make(U, StateData#state.server, R2),
-                        case catch qtalk_auth:check_multiple_login_user(U) of
-                        false ->
-                            catch update_push_flag(StateData#state.server,U,R2);
-                        _ ->
-                            ok
-                        end,
                         StateData2 =
                             StateData#state{resource = R2, jid = JID},
                         case open_session(StateData2) of
@@ -1342,16 +1293,11 @@ session_established({xmlstreamend, _Name}, StateData) ->
     send_stream_end(StateData, 102, <<"established for xmlstreamend">>),
     {stop, normal, StateData};
 session_established({xmlstreamerror,
-		     <<"XML stanza is too big">> = E},
+		     <<"XML stanza is too big">>},
 		    StateData) ->
-%    send_element(StateData,
-%		 ?POLICY_VIOLATION_ERR((StateData#state.lang), E)),
-%    send_stream_end(StateData),		 
     send_stream_end(StateData, 222, <<"established for xml stanza too big">>),
     {stop, normal, StateData};
 session_established({xmlstreamerror, _}, StateData) ->
-%    send_element(StateData, ?INVALID_XML_ERR),
-%    send_stream_end(StateData),
     send_stream_end(StateData, 222, <<"established for xmlstreamerror">>),
     {stop, normal, StateData};
 session_established(closed, #state{mgmt_state = active} = StateData) ->
@@ -1525,20 +1471,12 @@ handle_info({send_text, Text}, StateName, StateData) ->
     ejabberd_hooks:run(c2s_loop_debug, [Text]),
     fsm_next_state(StateName, StateData);
 handle_info(replaced, StateName, StateData) ->
-    Lang = StateData#state.lang,
-    Xmlelement = ?SERRT_CONFLICT(Lang, <<"Replaced by new connection">>),
-%    handle_info({kick, <<"201">>, Xmlelement}, StateName, StateData);
     handle_info({kick, 222, <<"replaced">>}, StateName, StateData);
 handle_info(kick, StateName, StateData) ->
-    Lang = StateData#state.lang,
-    Xmlelement = ?SERRT_POLICY_VIOLATION(Lang, <<"has been kicked">>),
-%    handle_info({kick, <<"201">>, Xmlelement}, StateName, StateData);
     handle_info({kick, 201, <<"kicked by admin">>}, StateName, StateData);
 handle_info({kick, Code, Reason}, _StateName, StateData) ->
-%    send_element(StateData, Xmlelement),
     send_stream_end(StateData, Code, Reason),
-    {stop, normal,
-     StateData#state{authenticated = Reason}};
+    {stop, normal, StateData#state{authenticated = Reason}};
 handle_info({route, _From, _To, {broadcast, Data}},
             StateName, StateData) ->
     ?DEBUG("broadcast~n~p~n", [Data]),
@@ -1546,9 +1484,7 @@ handle_info({route, _From, _To, {broadcast, Data}},
         {item, IJID, ISubscription} ->
             fsm_next_state(StateName,
                            roster_change(IJID, ISubscription, StateData));
-        {exit, Reason} ->
-            Lang = StateData#state.lang,
-            %send_element(StateData, ?SERRT_CONFLICT(Lang, Reason)),
+        {exit, _Reason} ->
             send_stream_end(StateData, 102, <<"serrt conflict">>),
             {stop, normal, StateData};
         {privacy_list, PrivList, PrivListName} ->
@@ -2160,16 +2096,6 @@ send_header(StateData, Server, Version, Lang) ->
 			    LangStr]),
     send_text(StateData, iolist_to_binary(Header)).
 
-send_trailer(StateData)
-    when StateData#state.mgmt_state == pending ->
-    ?DEBUG("Cannot send stream trailer while waiting for resumption", []);
-send_trailer(StateData)
-    when StateData#state.xml_socket ->
-    (StateData#state.sockmod):send_xml(StateData#state.socket,
-				       {xmlstreamend, <<"stream:stream">>});
-send_trailer(StateData) ->
-    send_text(StateData, ?STREAM_TRAILER).
-
 new_id() -> randoms:get_string().
 
 new_uniq_id() ->
@@ -2587,36 +2513,7 @@ process_privacy_iq(From, To,
     ejabberd_router:route(To, From, jlib:iq_to_xml(IQRes)),
     NewStateData.
 
-resend_offline_messages(StateData,_) ->
-    catch qtalk_sql:del_muc_spool(StateData#state.server,StateData#state.user),
-    catch qtalk_sql:del_spool(StateData#state.server,StateData#state.user).
-
-resend_offline_messages(#state{ask_offline = true} = StateData) ->
-    catch qtalk_sql:del_muc_spool(StateData#state.server,StateData#state.user),
-    case ejabberd_hooks:run_fold(resend_offline_messages_hook,
-				 StateData#state.server, [],
-				 [StateData#state.user, StateData#state.server])
-    of
-      Rs -> %%when is_list(Rs) ->
-	  lists:foreach(fun ({route, From, To,
-			      #xmlel{} = Packet}) ->
-				Pass = case privacy_check_packet(StateData,
-								 From, To,
-								 Packet, in)
-					   of
-					 allow -> true;
-					 deny -> false
-				       end,
-				if Pass ->
-				%       ejabberd_router:route(From, To, Packet);
-				       ok;
-				   true -> ok
-				end
-			end,
-			Rs)
-    end;
-resend_offline_messages(StateData) ->
-    catch qtalk_sql:del_muc_spool(StateData#state.server,StateData#state.user),
+resend_offline_messages(_StateData, _) ->
     ok.
 
 resend_subscription_requests(#state{user = User,
@@ -2703,9 +2600,6 @@ fsm_next_state(session_established, #state{mgmt_max_queue = exceeded} =
 	       StateData) ->
     ?WARNING_MSG("ACK queue too long, terminating session for ~s",
 		 [jid:to_string(StateData#state.jid)]),
-    Err = ?SERRT_POLICY_VIOLATION(StateData#state.lang,
-				  <<"Too many unacked stanzas">>),
-   % send_element(StateData, Err),
     send_stream_end(StateData, 102, <<"Too many unacked stanzas">>),
     {stop, normal, StateData#state{mgmt_resend = false}};
 fsm_next_state(session_established, #state{mgmt_state = pending} = StateData) ->
@@ -2796,13 +2690,6 @@ fsm_limit_opts(Opts) ->
             undefined -> [];
 	    N -> [{max_queue, N}]
 	  end
-    end.
-
-bounce_messages() ->
-    receive
-      {route, From, To, El} ->
-	  ejabberd_router:route(From, To, El), bounce_messages()
-      after 0 -> ok
     end.
 
 process_compression_request(El, StateName, StateData) ->
@@ -3463,29 +3350,6 @@ opt_type(_) ->
 
 %%%%%%%%%%%%%%-----------------------------------------------------------
 %%%%%%%%%%%%%% @date 2017-03
-%%%%%%%%%%%%%% 发送http key presence
-%%%%%%%%%%%%%%-----------------------------------------------------------
-send_time_key_presence(Server,User,Resource,StateData) ->
-    case StateData#state.key of
-    <<"">> ->
-    	case redis_link:hash_get(Server,1,User,Resource) of
-	    {ok,undefined} ->
-        	StateData;
-	    {ok,Key} when key =/= <<"">> ->
-        	?DEBUG("key ~p ~n",[Key]),
-	        Presence = qtalk_c2s:make_time_key_presence(Key),
-        	send_element(StateData,Presence),
-            qtalk_public:send_navversion(User,Server,Resource,<<"1003">>),
-	        StateData#state{key = Key};
-	    _ ->
-        	StateData
-	    end;
-    _ ->
-	StateData
-    end.
-    
-%%%%%%%%%%%%%%-----------------------------------------------------------
-%%%%%%%%%%%%%% @date 2017-03
 %%%%%%%%%%%%%% 记录用户的show_tag
 %%%%%%%%%%%%%%-----------------------------------------------------------
 record_user_show_tag(Packet,StateData) ->
@@ -3605,44 +3469,25 @@ do_send_probuf_msg(StateData,From,To, Packet = #xmlel{name = <<"presence">>}) ->
         ?DEBUG("PB_PRESENCE ~p ,Text ~p ~n",[PB_PRESENCE,Text]),
         send_text(StateData, Text)
     end;
-do_send_probuf_msg(StateData,From,To, Packet) ->
+do_send_probuf_msg(_StateData, _From, _To, Packet) ->
     ?DEBUG("Packet ~p ~n",[Packet]).
 
 send_welcome_msg(StateData,User,Server,Version,SockMod) ->
     From = jlib:jid_to_string({User,Server,<<"">>}),
     PBMsg = ejabberd_encode_protobuf:struct_pb_welcome(From,From,Server,Version,User,SockMod),
-        ?DEBUG("PBMsg ~p ~n",[PBMsg]),
     Text = ejabberd_encode_protobuf:uint32_pack(byte_size(PBMsg),PBMsg),
-        ?DEBUG("Text ~p ~n",[Text]),
     send_text(StateData, Text).
 
-send_startTLS(StateData,User,Server) ->
+send_startTLS(_StateData,User,Server) ->
     From = jlib:jid_to_string({User,Server,<<"">>}),
     PBMsg = ejabberd_encode_protobuf:struct_pb_startTLS(From,From),
-        ?DEBUG("PBMsg ~p ~n",[PBMsg]),
     Text = ejabberd_encode_protobuf:uint32_pack(byte_size(PBMsg),PBMsg),
-        ?DEBUG("Text ~p ~n",[Text]),
     Text.
-
-send_stream_end(StateData) ->
-    catch ?ERROR_MSG("the send stream end(~p)~n", [jid:to_string(StateData#state.jid)]),
-    End_Msg = ejabberd_encode_protobuf:struct_pb_streamend(<<"">>,<<"">>),
-    Text = ejabberd_encode_protobuf:uint32_pack(byte_size(End_Msg),End_Msg),
-    send_text(StateData, Text).
-
 
 send_stream_end(StateData,Code,Reason) ->
     catch ?ERROR_MSG("the send stream end, the code is ~p, the reason is ~p, username is ~p~n", [Code, Reason, jid:to_string(StateData#state.jid)]),
     End_Msg = ejabberd_encode_protobuf:struct_pb_streamend(<<"">>,<<"">>,Code,Reason),
     Text = ejabberd_encode_protobuf:uint32_pack(byte_size(End_Msg),End_Msg),
-    send_text(StateData, Text).
-
-
-send_auth_msg(StateData,User,Server,Res) ->
-    From = jlib:jid_to_string({User,Server,<<"">>}),
-    Auth_Msg = ejabberd_encode_protobuf:struct_pb_auth_msg(From,From,Res),
-    Text = ejabberd_encode_protobuf:uint32_pack(byte_size(Auth_Msg),Auth_Msg),
-        ?DEBUG("Text auth ~p ~n",[Text]),
     send_text(StateData, Text).
 
 send_auth_login_response_sucess(StateData,User,Server,Msg_ID,INFO) ->
@@ -3657,13 +3502,6 @@ send_auth_login_response_failed(StateData,User,Server,Msg_ID,INFO) ->
     Auth_Msg = ejabberd_encode_protobuf:struct_pb_response_err(From,From,0,Msg_ID,INFO,<<"login failed">>),
     Text = ejabberd_encode_protobuf:uint32_pack(byte_size(Auth_Msg),Auth_Msg),
         ?DEBUG("Text login  auth ~p ,~p ,~p ~n",[Text,StateData#state.sockmod,StateData#state.socket]),
-    send_text(StateData, Text).
-
-send_iq_bind_msg(StateData,User,Server,Key,Value,Msg_ID,Body) ->
-    From = jlib:jid_to_string({User,Server,<<"">>}),
-    IQ_Msg = ejabberd_encode_protobuf:struct_pb_iq_msg(From,From,Key,Value,Msg_ID,Body),
-    Text = ejabberd_encode_protobuf:uint32_pack(byte_size(IQ_Msg),IQ_Msg),
-    ?DEBUG("Text IQ ~p ~n",[Text]),
     send_text(StateData, Text).
 
 encode_iq_pb_packet(StateData,From,To, Packet) ->
@@ -3753,53 +3591,3 @@ encode_iq_result_pb_packet(StateData,From,To, Packet) ->
              <<"error">>
          end
     end.
-update_push_flag(Server,User,Rescource) ->
-        qtalk_auth:kick_token_login_user(User,Server),
-        case str:str(Rescource,<<"Android">>) =/=0  of
-        true ->
-                update_push(User,Server,<<"android">>);
-        false ->
-                case str:str(Rescource,<<"iPhone">>) =/= 0 of
-                true ->
-                        update_push(User,Server,<<"ios">>);
-                false ->
-                        ok
-                end
-        end.
-
-update_push(User,Server,Key) ->
- case Key of
- <<"android">> ->
-         catch ejabberd_sql:sql_query(Server,
-                [<<"update person_user_mac_key set push_flag = 0 where user_name = '">>,User,<<"' and host = '">>,Server,<<"' and os = 'ios' ;">>]),
-         catch ejabberd_sql:sql_query(Server,
-                [<<"update person_user_mac_key set push_flag = 1 where user_name = '">>,User,<<"' and host = '">>,Server,<<"' and os = 'android' ;">>]),
-         catch ejabberd_sql:sql_query(Server,
-                [<<"update user_mac_key set push_flag = 0 where user_name = '">>,User,<<"' and host = '">>,Server,<<"' and os = 'ios' ;">>]),
-         catch ejabberd_sql:sql_query(Server,
-                [<<"update user_mac_key set push_flag = 1 where user_name = '">>,User,<<"' and host = '">>,Server,<<"' and os = 'android' ;">>]);
- <<"ios">> ->
-         catch ejabberd_sql:sql_query(Server,
-                [<<"update person_user_mac_key set push_flag = 1 where user_name = '">>,User,<<"' and host = '">>,Server,<<"' and os = 'ios' ;">>]),
-         catch ejabberd_sql:sql_query(Server,
-                [<<"update person_user_mac_key set push_flag = 0 where user_name = '">>,User,<<"' and host = '">>,Server,<<"' and os = 'android' ;">>]),
-         catch ejabberd_sql:sql_query(Server,
-                [<<"update user_mac_key set push_flag = 1 where user_name = '">>,User,<<"' and host = '">>,Server,<<"' and os = 'ios' ;">>]),
-         catch ejabberd_sql:sql_query(Server,
-                [<<"update user_mac_key set push_flag = 0 where user_name = '">>,User,<<"' and host = '">>,Server,<<"' and os = 'android' ;">>]);
-  _ ->
-        ok
- end.
-
-
-%term_send_stream_end(StateData) ->
-%    case StateData#state.authenticated of
-%    B when is_boolean(B) ->
-%        catch send_stream_end(StateData);
-%    A when is_binary(A) ->
-%        Reason = qtalk_public:get_reason_by_errcode(A),
-%        ?INFO_MSG("term_send_stream_end Reason ~p ~n",[Reason]),
-%        catch send_stream_end(StateData,binary_to_integer(A),Reason);
-%    _ ->
-%        catch send_stream_end(StateData)
-%    end.

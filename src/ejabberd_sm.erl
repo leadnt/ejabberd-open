@@ -77,7 +77,6 @@
 	 record_show/4,
 	 get_user_away_rescources/2,
 	 get_user_session/2,
-	 judge_away_flag/2,
 	 add_datetime_to_packet/3,
 	 add_msectime_to_packet/4,
          do_make_verify_friend_packet1/4,
@@ -298,7 +297,6 @@ set_offline_info(SID, User, Server, Resource, Info) ->
     LUser = jid:nodeprep(User),
     LServer = jid:nameprep(Server),
     LResource = jid:resourceprep(Resource),
-    Mod = get_sm_backend(LServer),
     set_session(SID, LUser, LServer, LResource, undefined, [offline | Info]).
 
 -spec get_offline_info(erlang:timestamp(), binary(), binary(),
@@ -411,16 +409,16 @@ handle_info({route, From, To, Packet}, State) ->
 	    ok
     end,
     {noreply, State};
-handle_info({register_iq_handler, Host, XMLNS, Module, Function}, State) ->
+handle_info({register_iq_handler, _Host, XMLNS, Module, Function}, State) ->
     ets:insert(sm_iqtable, {XMLNS, Module, Function}),
     {noreply, State};
-handle_info({register_iq_handler, Host, XMLNS, Module,
+handle_info({register_iq_handler, _Host, XMLNS, Module,
 	     Function, Opts},
 	    State) ->
     ets:insert(sm_iqtable,
 	       {XMLNS, Module, Function, Opts}),
     {noreply, State};
-handle_info({unregister_iq_handler, Host, XMLNS},
+handle_info({unregister_iq_handler, _Host, XMLNS},
 	    State) ->
     case ets:lookup(sm_iqtable, XMLNS) of
       [{_, Module, Function, Opts}] ->
@@ -568,14 +566,7 @@ do_route(From, To, #xmlel{} = Packet10) ->
 		  <<"chat">> -> route_message(From, To, Packet, chat);
 		  <<"headline">> -> route_message(From, To, Packet, headline);
 		  <<"error">> -> ok;
-		  <<"groupchat">> ->
-%		      ErrTxt = <<"User session not found">>,
-%		      Err = jlib:make_error_reply(
-%			      Packet, ?ERRT_SERVICE_UNAVAILABLE(Lang, ErrTxt)),
-%		      ejabberd_router:route(To, From, Err);
- %                 <<"normal">> -> route_message(From, To, Packet, normal);
-  %                Type -> route_message(From, To, Packet, Type)
-            route_message(From, To, Packet, groupchat);
+		  <<"groupchat">> -> route_message(From, To, Packet, groupchat);
           Type ->
             route_message(From, To, Packet, Type)
 		end;
@@ -592,13 +583,7 @@ do_route(From, To, #xmlel{} = Packet10) ->
 			<<"chat">> -> route_message(From, To, Packet, chat);
 			<<"headline">> -> ok;
 			<<"error">> -> ok;
-			<<"groupchat">> ->
-		%	    ErrTxt = <<"User session not found">>,
-		%	    Err = jlib:make_error_reply(
-		%		    Packet,
-		%		    ?ERRT_SERVICE_UNAVAILABLE(Lang, ErrTxt)),
-		%	    ejabberd_router:route(To, From, Err);
-		        ok;
+			<<"groupchat">> -> ok;
 			<<"normal">> -> route_message(From, To, Packet, normal);
 		        Type -> route_message(From, To, Packet, Type)
 		      end;
@@ -652,24 +637,7 @@ is_privacy_allow(From, To, Packet, PrivacyList) ->
 			      allow,
 			      [User, Server, PrivacyList, {From, To, Packet},
 			       in]).
-%%route_message(From, To, Packet, <<"consult">>) ->
-%%    #xmlel{name = Name, attrs = Attrs, children = Els} = Packet,
-%%    LUser = To#jid.luser,
-%%    LServer = To#jid.lserver,
-%%    NewPacket = make_new_packet(From,To,Packet,Name,Attrs,Els),
-%%    PrioRes = get_user_present_resources(LUser, LServer),
-%%    case catch lists:max(PrioRes) of
-%%    {Priority, _R}
-%%          when is_integer(Priority), Priority >= 0 ->
-%%        case To#jid.luser of 
-%%        <<"opszhiban">> ->
-%%            consult_message(From,To,NewPacket);
-%%        _ ->
-%%    		catch send_max_priority_msg(LUser,LServer,Priority,From,To,NewPacket,PrioRes)
-%%        end;
-%%    _ ->
-%%	    consult_message(From,To,NewPacket)
-%%    end;
+
 route_message(From, To, Packet, Type) ->
     LUser = To#jid.luser,
     LServer = To#jid.lserver,
@@ -687,12 +655,7 @@ route_message(From, To, Packet, Type) ->
       {Priority, _R}
 	  when is_integer(Priority), Priority >= 0 ->
               catch send_max_priority_msg(LUser,LServer,Priority,From,To,NewPacket,PrioRes);
-      _ ->
-	  case Type of
-        <<"subscription">>->
-            subscription:subscription_message(From,To,NewPacket);
-	    _ -> ok
-	  end
+      _ -> ok
     end.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -895,8 +858,6 @@ make_sid() ->
 opt_type(sm_db_type) -> fun(T) -> ejabberd_config:v_db(?MODULE, T) end;
 opt_type(_) -> [sm_db_type].
 
-%% TODO
-
 get_user_present_resources_and_pid(LUser, LServer) ->
     Mod = get_sm_backend(LServer),
     Ss = online(Mod:get_sessions(LUser, LServer)),
@@ -912,19 +873,6 @@ insert_chat_msg(_Server,From, To,From_host,To_host, Msg,_Body,ID,InsertTime) ->
     case jlib:nodeprep(From) of
     error -> {error, invalid_jid};
     LUser ->
-        Packet = #xmlel{name = Name, attrs = Attrs, children = Els} = fxml_stream:parse_element(Msg),
-        Type = fxml:get_attr_s(<<"type">>, Attrs),
-        Realfrom = fxml:get_attr_s(<<"realfrom">>, Attrs),
-        Realto = fxml:get_attr_s(<<"realto">>, Attrs),
-        {ThirdDirection, CN, UsrType} = case fxml:get_tag_attr_s(<<"channelid">>, Packet) of
-            <<"">> -> {?DIRECTION, ?CN, ?USRTYPE};
-            ChannelId ->
-                {ok, {obj, ChannelIdJson}, []} = rfc4627:decode(ChannelId),
-                {proplists:get_value("d", ChannelIdJson, ?DIRECTION),
-                 proplists:get_value("cn", ChannelIdJson, ?CN),
-                 proplists:get_value("usrType", ChannelIdJson, ?USRTYPE)}
-        end,
-
         LFrom = ejabberd_sql:escape(LUser),
         LTo = ejabberd_sql:escape(To),
         LBody = ejabberd_sql:escape(Msg),
@@ -933,22 +881,6 @@ insert_chat_msg(_Server,From, To,From_host,To_host, Msg,_Body,ID,InsertTime) ->
         Time = qtalk_public:pg2timestamp(InsertTime),
 
         insert_msg2db(LServer, LFrom,LTo,From_host,To_host,LID,LBody,Time)
-
-        %%MsgContent = rfc4627:encode({obj, [{"m_from", LUser},
-        %%                                   {"from_host", From_host},
-        %%                                   {"m_to", To},
-        %%                                   {"to_host", To_host},
-        %%                                   {"m_body", Msg},
-        %%                                   {"type", Type},
-        %%                                   {"realfrom", Realfrom},
-        %%                                   {"realto", Realto},
-        %%                                   {"create_time", InsertTime},
-        %%                                   {"cn", CN},
-        %%                                   {"d", ThirdDirection},
-        %%                                   {"usrType", UsrType},
-        %%                                   {"msg_id", ID}]}),
-        %%catch spawn(send_kafka_msg,send_kafka_msg,[<<"custom_vs_hosts_chat_message">>, Type, MsgContent]),
-        %%catch spawn(send_kafka_msg,send_kafka_msg,[<<"custom_vs_hash_hosts_chat_message">>, Type, MsgContent])
     end.
 
 insert_msg2db(LServer, LFrom,LTo,From_host,To_host,LID,LBody,Time) ->
@@ -1010,7 +942,7 @@ get_user_away_rescources(User, Server) ->
     end.
 
 try_insert_msg(From,To,Packet,Mbody,Now) ->
-    #xmlel{name = Name, attrs = Attrs, children = Els} = Packet,
+    #xmlel{attrs = Attrs, children = Els} = Packet,
     LServer = To#jid.lserver,
     insert_user_chat_msg(From,To,Packet,Attrs,Els,Mbody,LServer,Now).
 
@@ -1064,42 +996,6 @@ send_max_priority_msg(LUser,LServer,Priority,From,To,NewPacket,PrioRes) ->
         ({_Prio, _Res}) -> []
     end,PrioRes).
 
-judge_away_flag(Resources,Offline_send_flag) ->
-    {Away_lan_num,Normal_lan_num,Away_wlan_num,_Normal_wlan_num} = get_resources_num(Resources,0,0,0,0),
-    case {Resources, Offline_send_flag} of
-        {[], true} -> true;
-        {[], _} -> false;
-        _ ->
-            case Away_wlan_num + Away_lan_num =:= 0 of
-                true -> false;
-                _ ->
-                   case Away_lan_num > 0 of
-                   true -> true;
-                   _ ->
-                       case Away_wlan_num =/= 0 andalso Normal_lan_num =:= 0 of 
-                           true -> true;
-                           _ -> false
-                       end
-                   end
-            end
-    end.
-
-get_resources_num([],A_lan_num,N_lan_num,A_wlan_num,N_wlan_num) ->
-    {A_lan_num,N_lan_num,A_wlan_num,N_wlan_num};
-get_resources_num(Rs,A_lan_num,N_lan_num,A_wlan_num,N_wlan_num) ->
-    [{S,R} | L ] = Rs,
-    if  S =:=  <<"away">> ->
-        case str:str(R,<<"iPhone">>) =/= 0 orelse str:str(R,<<"Android">>) =/= 0  orelse str:str(R,<<"IOS">>) =/= 0 of
-            true -> get_resources_num(L, A_lan_num,N_lan_num,A_wlan_num + 1,N_wlan_num);
-            _ -> get_resources_num(L, A_lan_num+1,N_lan_num,A_wlan_num,N_wlan_num)
-        end;
-    true ->
-        case str:str(R,<<"iPhone">>) =/= 0 orelse str:str(R,<<"Android">>) =/= 0 orelse str:str(R,<<"IOS">>) =/= 0 of
-            true -> get_resources_num(L, A_lan_num,N_lan_num,A_wlan_num,N_wlan_num+1);
-            _ -> get_resources_num(L, A_lan_num,N_lan_num+1,A_wlan_num,N_wlan_num)
-        end
-    end.
-
 make_new_packet(From,To,Packet,Name,Attrs,Els) ->
     NewPacket = case fxml:get_attr_s(<<"msec_times">>, Attrs)  of
         <<"">> -> add_datetime_to_packet(Name,Attrs,Els);
@@ -1109,17 +1005,13 @@ make_new_packet(From,To,Packet,Name,Attrs,Els) ->
     InsertTime = binary_to_integer(fxml:get_tag_attr_s(<<"msec_times">>, NewPacket)),
     Mtype = fxml:get_attr_s(<<"type">>, Attrs),
     case  Mtype == <<"normal">> orelse Mtype == <<"chat">> orelse Mtype == <<"consult">> orelse Mtype == <<"collection">> of
-    %%case  Mtype == <<"normal">> orelse Mtype == <<"chat">> orelse Mtype == <<"consult">> orelse Mtype == <<"collection">> orelse Mtype == <<"subscription">> of
         true ->
             Reply = fxml:get_attr_s(<<"auto_reply">>, Attrs),
-            Reply1 = fxml:get_attr_s(<<"atuo_reply">>, Attrs),
             Mbody = fxml:get_subtag_cdata(NewPacket, <<"body">>),
             Delay = fxml:get_subtag_cdata(Packet,<<"delay">>),
 
-            case Mbody =/= <<>> andalso
-                 Delay =/= <<"Offline Storage">> andalso
-                 Reply =/= <<"true">> andalso
-                 Reply1 =/= <<"true">> of
+            case Delay =/= <<"Offline Storage">> andalso
+                 Reply =/= <<"true">> of
                 true ->
                     try_insert_msg(From,To,NewPacket,Mbody,InsertTime),
                     NewPacket;
@@ -1127,7 +1019,7 @@ make_new_packet(From,To,Packet,Name,Attrs,Els) ->
             end;
         _ -> NewPacket
     end.
-   
+
 add_datetime_to_packet(Name,Attrs,Els) ->
     Now = qtalk_public:get_exact_timestamp(),
     add_msectime_to_packet(Name,Attrs,Els,Now).
@@ -1288,68 +1180,3 @@ get_server(From_host,To_host) ->
     if From_host =:= To_host -> From_host;
     true -> lists:nth(1,ejabberd_config:get_myhosts())
     end.
-
-check_carbon_msg(Packet) ->
-    case catch fxml:get_tag_attr_s(<<"carbon_message">>, Packet) of
-        <<"true">> -> true;
-        _ -> false
-    end.
-
-consult_message(From, To, Packet) ->
-    case check_carbon_msg(Packet) of
-    true ->
-        ok;
-    _ ->
-        do_consult_message(From,To,Packet) 
-    end.
-    
-
-do_consult_message(From,To,Packet) ->
-    {ThirdDirection, _CN, UsrType} = case fxml:get_tag_attr_s(<<"channelid">>, Packet) of
-        <<"">> -> {?DIRECTION, ?CN, ?USRTYPE};
-        ChannelId ->
-            {ok, {obj, ChannelIdJson}, []} = rfc4627:decode(ChannelId),
-            {proplists:get_value("d", ChannelIdJson, ?DIRECTION),
-            proplists:get_value("cn", ChannelIdJson, ?CN),
-            proplists:get_value("usrType", ChannelIdJson, ?USRTYPE)}
-    end,
-    ?DEBUG("ThirdDirection ~p ~n",[ThirdDirection]),
-
-    case ThirdDirection of
-        <<"send">> -> make_new_consult_message(From,To,Packet,UsrType);
-        ?DIRECTION -> ok
-    end.        
-
-replace_subtag(#xmlel{name = Name} = Tag, Xmlel) ->
-    Xmlel#xmlel{children = [Tag | lists:keydelete(Name, #xmlel.name, Xmlel#xmlel.children)]}. 
-
-make_new_consult_message(_From, To, Packet, UsrType) ->
-    Message1 = jlib:remove_attr(<<"channelid">>, Packet),
-    Channelid = rfc4627:encode({obj, [{"d", <<"recv">>}, {"cn", <<"consult">>}, {"usrType", UsrType}]}),
-    RToStr = fxml:get_tag_attr_s(<<"realto">>, Message1),
-    RTo = jlib:string_to_jid(RToStr),
-    Body = fxml:get_subtag(Message1, <<"body">>),
-    Msg_id = fxml:get_tag_attr_s(<<"id">>,fxml:get_subtag(Packet,<<"body">>)),
-    Bid = str:concat(<<"consult-">>,Msg_id),
-    NewBody = fxml:replace_tag_attr(<<"id">>, Bid, Body),
-    #xmlel{name = Name, attrs = Attrs, children = Children} = replace_subtag(NewBody, Message1),
-    Attrs2 = jlib:replace_from_to_attrs(jlib:jid_to_string(To), RToStr, Attrs),
-    NewPacket = #xmlel{name = Name, attrs = [{<<"channelid">>, Channelid}|Attrs2], children = Children},
-
-    ejabberd_router:route(To, RTo, NewPacket).
-
-is_invitation(Els) ->                                                                                               
-    lists:foldl(fun (#xmlel{name = <<"x">>, attrs = Attrs} =
-             El,  
-             false) ->
-            case fxml:get_attr_s(<<"xmlns">>, Attrs) of
-              ?NS_MUC_USER ->
-                  case fxml:get_subtag(El, <<"invite">>) of
-                false -> false;
-                _ -> true 
-                  end; 
-              _ -> false
-            end; 
-            (_, Acc) -> Acc
-        end, 
-        false, Els).

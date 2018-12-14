@@ -13,7 +13,7 @@
 %% API
 -define(SERVER, ?MODULE).
 
--export([start/0,stop/1]).
+-export([start/0,stop/1, opt_type/1]).
 -export([start_link/2,init/1]).
 
 -export([add_pid/3, remove_pid/3, get_pids/2, get_random_pid/2]).
@@ -30,7 +30,6 @@
 %%%===================================================================
 
 start() ->
-%    Host = lists:nth(1,?MYHOSTS),
     Host = ?SERVER_KEY,
     PoolSize = ejabberd_config:get_option(redis_pool_size, fun(A) -> A end, 1 ),
     StartMode = ejabberd_config:get_option(redis_start_mode, fun(A) -> A end, 1),
@@ -173,3 +172,4 @@ restart_redis(Host) ->
         gen_mod:start_module(Host, mod_redis)
     end.
 
+opt_type(_) -> [].

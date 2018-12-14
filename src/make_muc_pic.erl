@@ -5,5 +5,5 @@
 -include("logger.hrl").
 -include("qtalk.hrl").
 
-make_muc_pic(Server,Muc,Domain) ->
+make_muc_pic(_Server, _Muc, _Domain) ->
     true.

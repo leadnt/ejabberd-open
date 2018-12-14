@@ -1,6 +1,6 @@
 -module(easy_cluster).
 
--export([test_node/1,join/1,join_as_master/1,sync_node/1]).
+-export([test_node/1,join/1,join_as_master/1,sync_node/0]).
 
 test_node(NodeName) ->
     case net_adm:ping(NodeName) of
@@ -24,10 +24,10 @@ join_as_master(NodeName) ->
     mnesia:start(),
     mnesia:change_config(extra_db_nodes, [NodeName]),
     mnesia:change_table_copy_type(schema, node(), disc_copies),
-    sync_node(NodeName),
+    sync_node(),
     application:start(ejabberd).
 
-sync_node(NodeName) ->
+sync_node() ->
     [{Tb, mnesia:add_table_copy(Tb, node(), Type)}
-        || {Tb, [{NodeName, Type}]} <- [{T, mnesia:table_info(T, where_to_commit)}
+        || {Tb, [{_, Type}]} <- [{T, mnesia:table_info(T, where_to_commit)}
                                            || T <- mnesia:system_info(tables)]].

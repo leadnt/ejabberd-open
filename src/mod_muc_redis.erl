@@ -126,7 +126,7 @@ get_all_rooms(Host) ->
         []
     end.
 
-test1(Host,Domain) ->
+test1(_Host, Domain) ->
     {ok,L} =  redis_link:redis_cmd(?MUC_REDIS_TABLE,["KEYS",<<"*">>]) ,
      lists:foreach(fun(I) ->
                 case str:str(I,<<"get_online_flags">>) of

@@ -14,11 +14,11 @@
 -export([make_message_packet/4,check_user_reg_muc/3,clear_ets_muc_room_users/3,check_user_reg_muc_local/4]).
 -export([get_xml_attrs_id/1,get_xml_attrs_from/2,get_xml_attrs_to/2,get_sub_xmlns_name/1]).
 -export([tokens_jid/1,remove_subtags_by_name/2,deal_timestamp/1]).
--export([judge_spec_jid/2,clear_redis_user_key/3,add_attrs_realfrom/3]).
--export([user_to_mask_key/1,check_push_status/3,get_host_by_conhost/1,send_recv_repley/4]).
+-export([clear_redis_user_key/3,add_attrs_realfrom/3]).
+-export([get_host_by_conhost/1,send_recv_repley/4]).
 -export([get_errcode_by_reason/1,get_reason_by_errcode/1]).
 -export([strtime2timestamp/1,kick_error_login_user/2]).
--export([send_navversion/4,mask_push_kafka/5]).
+-export([send_navversion/4]).
 -export([get_default_host/0, get_default_domain/0]).
 
 
@@ -37,13 +37,7 @@ get_nick(User) ->
 		
 
 get_nick(User,Host) ->
-    case catch ets:lookup(nicks,{User,Host}) of
-    [{_,Name}] ->
-        Name;
-    _ ->
-        subscription:get_subscription_cn_name({User,Host})
-    end.
-
+    <<User/binary, "_", Host/binary>>.
 
 %%%%%%%%--------------------------------------------------------------------
 %%%%%%%% @date 2017-03
@@ -409,24 +403,6 @@ tokens_jid(Jid) ->
         Jid
     end.
 
-
-
-remove_subtags1([], NewEls, _Name, _Attr) ->
-    lists:reverse(NewEls);
-remove_subtags1([El | Els], NewEls, Name,
-        {AttrName, AttrValue} = Attr) ->
-    case El of
-      #xmlel{name = Name, attrs = Attrs} ->
-      case fxml:get_attr(AttrName, Attrs) of
-        false ->
-        remove_subtags1(Els, [El | NewEls], Name, Attr);
-        {value, AttrValue} ->
-        remove_subtags1(Els, NewEls, Name, Attr);
-        _ -> remove_subtags1(Els, [El | NewEls], Name, Attr)
-      end;
-      _ -> remove_subtags1(Els, [El | NewEls], Name, Attr)
-    end.
-
 remove_subtags_by_name(#xmlel{name = TagName, attrs = TagAttrs, children = Els},
   Name) ->
     #xmlel{name = TagName, attrs = TagAttrs,
@@ -441,38 +417,12 @@ remove_subtags1([El | Els], NewEls, Name) ->
       _ -> remove_subtags1(Els, [El | NewEls], Name)
     end.
 
-judge_spec_jid(From,To) ->
-    false.
-
 add_attrs_realfrom(Packet,RealFrom,Time) ->
     #xmlel{name = Name, attrs = Attrs, children =  Els} = Packet,
     Attrs1 = [{<<"sendjid">>,RealFrom},{<<"realfrom">>,RealFrom}] ++ proplists:delete(<<"sendjid">>, proplists:delete(<<"realfrom">>, Attrs)),
     case lists:keyfind(<<"msec_times">>, 1, Attrs1) of
        {<<"msec_times">>, _} -> #xmlel{name = Name, attrs = Attrs1, children = Els};
        _ -> #xmlel{name = Name, attrs = [{<<"msec_times">>,integer_to_binary(Time)}] ++ Attrs1, children = Els}
-    end.
-
-check_jid_invaild(SJID) ->
-    case jlib:string_to_jid(SJID) of
-    error ->
-        false;
-    _ ->
-        true
-    end.
-        
-        
-user_to_mask_key(User) ->
- <<User/binary,":mask">>.
-
-check_push_status(Host,User,Server) ->
-    UPK = <<"mp_",User/binary,"@",Server/binary>>,
-    case catch redis_link:str_get(Host,10,UPK) of
-    {ok,undefined} ->
-           false ;
-    { ok,<<"1">>} ->
-            true;
-    _ ->
-        false
     end.
 
 %%%%%%%%%%%%%%-----------------------------------------------------------
@@ -540,7 +490,7 @@ kick_error_login_user(Error,Pid) ->
         end.
 
 
-send_navversion(User,Server,Res,Version) ->
+send_navversion(User, Server, Res, _Version) ->
     Ver = 
     case catch redis_link:str_get(Server,15,<<"navversion">>) of
     {ok,undefined} ->
@@ -555,42 +505,6 @@ send_navversion(User,Server,Res,Version) ->
     To = jlib:jid_to_string({User,Server,Res}),
     Data = rfc4627:encode({obj, [{<<"navversion">>,Ver}]}),
     ejabberd_rpc_presence:get_notify_presence(From, To, <<"3">>, list_to_binary(Data)).  
-  
-mask_push_kafka(From,To,Packet,ID,InsertTime)->
-    case catch fxml:get_subtag_cdata(Packet, <<"body">>) of
-    Msg  when Msg /= <<>>   ->
-        #xmlel{name = Name, attrs = Attrs, children = Els} = Packet,
-      %  Type = fxml:get_attr_s(<<"type">>, Attrs),
-        Type = <<"mask">>,
-        {ThirdDirection, CN, UsrType} = case fxml:get_tag_attr_s(<<"channelid">>, Packet) of
-            <<"">> -> {<<"recv">>, <<"qchat">>, <<"common">>};
-            ChannelId ->
-                {ok, {obj, ChannelIdJson}, []} = rfc4627:decode(ChannelId),
-                {proplists:get_value("d", ChannelIdJson, <<"recv">>),
-                 proplists:get_value("cn", ChannelIdJson, <<"qchat">>),
-                 proplists:get_value("usrType", ChannelIdJson, <<"common">>)}
-        end,
-
-        LFrom = jlib:jid_to_string(From),
-        LTo = jlib:jid_to_string(To),
-        Time = qtalk_public:pg2timestamp(InsertTime),
-
-
-        MsgContent = rfc4627:encode({obj, [{"m_from", LFrom},
-                                           {"from_host", From#jid.lserver},
-                                           {"m_to", LTo},
-                                           {"to_host", To#jid.lserver},
-                                           {"m_body", Msg},
-                                           {"create_time", InsertTime},
-                                           {"cn", CN},
-                                           {"d", ThirdDirection},
-                                           {"usrType", UsrType},
-                                           {"msg_id", ID}]}),
-
-        catch spawn(send_kafka_msg,send_kafka_msg,[<<"custom_vs_hash_hosts_chat_message">>, Type, MsgContent]);
-    _ ->
-        ok
-    end.
 
 get_default_host() ->
     ejabberd_config:get_option(default_host, fun(Host)-> Host end, <<"localhost">>). 

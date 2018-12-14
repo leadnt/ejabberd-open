@@ -128,7 +128,7 @@ stop(Host) ->
 			   {{'_', Host}}),
     ok.
 
-register_feature(Host, Feature) ->
+register_feature(_Host, Feature) ->
     register_feature(Feature).
 
 register_feature(Feature) ->
@@ -136,7 +136,7 @@ register_feature(Feature) ->
 		  [named_table, ordered_set, public]),
     ets:insert(disco_features, {{Feature, ?SERVER_KEY}}).
 
-unregister_feature(Host, Feature) ->
+unregister_feature(_Host, Feature) ->
     unregister_feature(Feature).
 
 unregister_feature(Feature) ->
@@ -144,7 +144,7 @@ unregister_feature(Feature) ->
 		  [named_table, ordered_set, public]),
     ets:delete(disco_features, {Feature, ?SERVER_KEY}).
 
-register_extra_domain(Host, Domain) ->
+register_extra_domain(_Host, Domain) ->
     register_extra_domain(Domain).
 
 register_extra_domain(Domain) ->
@@ -152,7 +152,7 @@ register_extra_domain(Domain) ->
 		  [named_table, ordered_set, public]),
     ets:insert(disco_extra_domains, {{Domain, ?SERVER_KEY}}).
 
-unregister_extra_domain(Host, Domain) ->
+unregister_extra_domain(_Host, Domain) ->
     unregister_extra_domain(Domain).
 
 unregister_extra_domain(Domain) ->

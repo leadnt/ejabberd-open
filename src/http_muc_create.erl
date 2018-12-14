@@ -14,13 +14,13 @@ handle(Req) ->
     end.
 
 do_handle(Req)->
-    {ok, Body, _} = cowboy_req:body(Req),
+    {ok, Body, Req1} = cowboy_req:body(Req),
     case rfc4627:decode(Body) of
     {ok,{obj,Args},[]}  ->
         Res = create_muc(Args),
-        http_utils:cowboy_req_reply_json(Res, Req);
+        http_utils:cowboy_req_reply_json(Res, Req1);
     _ ->
-        http_utils:cowboy_req_reply_json(http_utils:gen_fail_result(1,<<"Json format error.">>), Req)
+        http_utils:cowboy_req_reply_json(http_utils:gen_fail_result(1,<<"Json format error.">>), Req1)
     end.
 
 create_muc(Args) ->
@@ -45,7 +45,7 @@ create_muc(Server,Args) ->
             To_owner ->
                 Owner = jlib:make_jid(Muc_Towner,Host,<<"">>),
                 catch ejabberd_router:route(Owner,To_owner, Packet),
-    	        Res = qtalk_sql:insert_muc_vcard_info(Server,qtalk_public:concat(Muc_id,<<"@">>,Domain),Muc_name,<<"">>,Desc,<<"">>,<<"1">>),
+    	        qtalk_sql:insert_muc_vcard_info(Server,qtalk_public:concat(Muc_id,<<"@">>,Domain),Muc_name,<<"">>,Desc,<<"">>,<<"1">>),
                 Persistent_packet = http_muc_session:make_muc_persistent(),
                 http_muc_vcard_presence:send_update_vcard_presence(Muc_id),
                 catch ejabberd_router:route(jlib:make_jid(Muc_Towner,Host,<<"">>),jlib:jid_replace_resource(To_owner,<<"">>), Persistent_packet)	

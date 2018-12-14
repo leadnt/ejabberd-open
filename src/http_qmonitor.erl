@@ -12,8 +12,6 @@
 -include("logger.hrl").
 -include("ejabberd_config.hrl").
 
--record(monitor_rec,{key,count,time}).
--record(monitor_val,{key,value}).
 
 -define(MB, (1024 * 1024)).
 
@@ -58,7 +56,7 @@ get_monitor_info() ->
     Result.
 
 client_platform_stat() ->
-    N = length([node()|nodes()]),
+    N = length(nodes()) + 1,
     case catch ets:lookup(local_config,{global,db_hosts}) of
 	[DHost] when is_record(DHost,local_config) ->
 		V = DHost#local_config.value,
