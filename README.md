@@ -61,6 +61,41 @@ IM数据库服务
 # sudo yum -y groupinstall Base "Development Tools" "Perl Support"
 # sudo yum -y install openssl openssl-devel unixODBC unixODBC-devel pkgconfig libSM libSM-devel libxslt ncurses-devel libyaml libyaml-devel expat expat-devel libxml2-devel libxml2 java-1.8.0-openjdk  java-1.8.0-openjdk-devel  pam-devel pcre-devel gd-devel bzip2-devel zlib-devel libicu-devel libwebp-devel gmp-devel curl-devel postgresql-devel libtidy libtidy-devel recode aspell libmcrypt  libmemcached gd
 
+redis安装
+sudo yum install -y redis
+sudo vim /etc/redis.conf
+ 
+daemonize yes
+requirepass 123456
+ 
+启动redis
+sudo redis-server /etc/redis.conf
+ 
+数据库安装
+sudo yum install https://download.postgresql.org/pub/repos/yum/11/redhat/rhel-7-x86_64/pgdg-centos11-11-2.noarch.rpm
+sudo yum -y install postgresql11 postgresql11-server postgresql11-libs
+ 
+sudo /usr/pgsql-11/bin/postgresql-11-setup initdb
+sudo systemctl enable postgresql-11
+sudo systemctl start postgresql-11
+ 
+修改posgres的密码
+sudo passwd postgres
+su - postgres
+psql -f /home/monkboy/download/qtalk_pg10_2018_11_26.sql
+psql
+# ALTER USER ejabberd WITH PASSWORD '123456'
+
+修改配置文件
+[monkboy@monk download]$ sudo vim /var/lib/pgsql/11/data/pg_hba.conf
+ 
+# "local" is for Unix domain socket connections only
+local   all             all                                     peer
+# IPv4 local connections:
+host    all             all             127.0.0.1/32            md5
+# IPv6 local connections:
+host    all             all             ::1/128                 md5
+
 新建安装目录
 # sudo mkdir /home/work
 # sudo chown foo:foo /home/work
