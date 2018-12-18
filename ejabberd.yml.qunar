@@ -364,9 +364,9 @@ auth_password_format: plain
 ##
 sql_type: pgsql
 sql_server: "localhost"
-sql_database: "database"
-sql_username: "username"
-sql_password: "password"
+sql_database: "ejabberd"
+sql_username: "ejabberd"
+sql_password: "123456"
 
 ##
 ## If you want to specify the port:
@@ -564,9 +564,9 @@ language: "en"
 sm_db_type: redis
 redis_start_mode: 0
 redis_pool_size: 1
-redis_server: "redis"
+redis_server: "127.0.0.1"
 redis_port: 6379
-redis_password: "password"
+redis_password: "123456"
 redis_tab: "0,1,2,3,5,7,10,11,15"
 
 #sm_db_type: sql
