@@ -42,7 +42,7 @@ IM数据库服务
 
 ### QTalk各个模块之间的关系
 
-(image/arch.png)
+![architecture](image/arch.png)
 
 ## 安装
 
@@ -97,16 +97,6 @@ sudo ./sbin/ejabberdctl debug
 > nodes()
 # 如果可以看到其它节点，就证明集群成功了
 ```
-
-## 结构图
-
-### 系统体系结构
-
-![architecture](image/modules.png)
-
-### 消息路由流程图
-
-![route process](image/route.png)
 
 ## 开发指南
 
