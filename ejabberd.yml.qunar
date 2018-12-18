@@ -364,9 +364,9 @@ auth_password_format: plain
 ##
 sql_type: pgsql
 sql_server: "localhost"
-sql_database: "database"
-sql_username: "username"
-sql_password: "password"
+sql_database: "ejabberd"
+sql_username: "ejabberd"
+sql_password: "123456"
 
 ##
 ## If you want to specify the port:
@@ -564,9 +564,9 @@ language: "en"
 sm_db_type: redis
 redis_start_mode: 0
 redis_pool_size: 1
-redis_server: "redis"
+redis_server: "127.0.0.1"
 redis_port: 6379
-redis_password: "password"
+redis_password: "123456"
 redis_tab: "0,1,2,3,5,7,10,11,15"
 
 #sm_db_type: sql
@@ -674,8 +674,8 @@ allow_contrib_modules: true
 default_host: "qtalk.xxx.org"
 default_domain: "conference.qtalk.xxx.org"
 
-rsa_public_key: "-----BEGIN PUBLIC KEY-----\nMIqGfMA023244GNADCBiQKBgQCy2VXDAlCZlj7gPHvC/vwvbpTN\n/GyW0tmNCqh0UPitdTTGZk3UcLqu9lWMGPViL/5lhboiSogsDxJ234wo91DDBjTX\n1HbuyuOhvsvayV7Yc8t+ajFW/8RwlvhGSzVplthoU+md9kGeZ8t73VWWZUEB0iyW\nx7Y/RjUwTdnOlNXDzQIDAQAB\n-----END PUBLIC KEY-----"
-rsa_private_key: "-----BEGIN RSA PRIVATE KEY-----\nMIICeXAIBAAKBgQCy2VXDAlCZlj7gPHvC/vwvbpTN/GyW0tmNCqh0UPitdTTGZk3U\nc23423L/5lhboiSogsDxJLHdwo91DDBjTX1HbuyuOhvsvayV7Yc8t+ajFW\n/8RwlvhGSzVplthoU+md9kGeZ8t73VWWZUEB0iyWx7Y/RjUwTdnOlNXDzQIDAQAB\nAoGAHlGlrkdoLoE/63eVa3saeVf/tePC7NaVtslFwWIwpgcmiTOyof7yRtLPsc5R\nWvHT6JYA9es4pm9vpHhNaEx0zjJkuAW9ECLb4dZA1b6stQy7nHl7dgT13RsEjKJI\n3CYLmK2Mneis9dObzz0CqMgdbAA456zQ4VuMlwJZzf0BT8EC23424pbxMey0tn+1\nI4lL+1JYfrfQZoA+dv0d8X2gt0d8itJFPQYWsJCt4vUl48c58E+hWarCBl+yl4ym\nz7RltmwpAkEA1WkIvwWlCyliUpgM7V0rp8vxBPyTXqNZ6+xiqVotX2PIQ116fNVW\n5Tx5DoAxQ/c+QALOZXAiY7BiAZ+AMl1PBQJAZaAYiAAiJCgerms66icOhqTf5XPo\nY65xj/GIlMy8rB4GJI4XiD/zCKttfJk9EhDnZ4LWBDqIskxfb9ULmvKioQJAfo6w\nWh/t1WWwYky7ddRH/FVMVGm4t2nl/KwNgmLw/128OH7qEbeutXkcTUYmcSjhaLKB\nVdSfAEFsjYvaSYPeRQJBANLk4jCONVQkYzSmnvqUrFvDOFq9Ei5J08waevFIoaia\nJJ9OvMg0AueWwHo/kfNz1GkCV6de4mKTshgT5d2V0T4=\n-----END RSA PRIVATE KEY-----"
+rsa_public_key: "-----BEGIN PUBLIC KEY-----\nMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCy2VXDAlCZlj7gPHvC/vwvbpTN\n/GyW0tmNCqh0UPitdTTGZk3UcLqu9lWMGPViL/5lhboiSogsDxJLHdwo91DDBjTX\n1HbuyuOhvsvayV7Yc8t+ajFW/8RwlvhGSzVplthoU+md9kGeZ8t73VWWZUEB0iyW\nx7Y/RjUwTdnOlNXDzQIDAQAB\n-----END PUBLIC KEY-----"
+rsa_private_key: "-----BEGIN RSA PRIVATE KEY-----\nMIICXAIBAAKBgQCy2VXDAlCZlj7gPHvC/vwvbpTN/GyW0tmNCqh0UPitdTTGZk3U\ncLqu9lWMGPViL/5lhboiSogsDxJLHdwo91DDBjTX1HbuyuOhvsvayV7Yc8t+ajFW\n/8RwlvhGSzVplthoU+md9kGeZ8t73VWWZUEB0iyWx7Y/RjUwTdnOlNXDzQIDAQAB\nAoGAHlGlrkdoLoE/63eVa3saeVf/tePC7NaVtslFwWIwpgcmiTOyof7yRtLPsc5R\nWvHT6JYA9es4pm9vpHhNaEx0zjJkuAW9ECLb4dZA1b6stQy7nHl7dgT13RsEjKJI\n3CYLmK2Mneis9dObzz0CqMgdbAA456zQ4VuMlwJZzf0BT8ECQQDWipbxMey0tn+1\nI4lL+1JYfrfQZoA+dv0d8X2gt0d8itJFPQYWsJCt4vUl48c58E+hWarCBl+yl4ym\nz7RltmwpAkEA1WkIvwWlCyliUpgM7V0rp8vxBPyTXqNZ6+xiqVotX2PIQ116fNVW\n5Tx5DoAxQ/c+QALOZXAiY7BiAZ+AMl1PBQJAZaAYiAAiJCgerms66icOhqTf5XPo\nY65xj/GIlMy8rB4GJI4XiD/zCKttfJk9EhDnZ4LWBDqIskxfb9ULmvKioQJAfo6w\nWh/t1WWwYky7ddRH/FVMVGm4t2nl/KwNgmLw/128OH7qEbeutXkcTUYmcSjhaLKB\nVdSfAEFsjYvaSYPeRQJBANLk4jCONVQkYzSmnvqUrFvDOFq9Ei5J08waevFIoaia\nJJ9OvMg0AueWwHo/kfNz1GkCV6de4mKTshgT5d2V0T4=\n-----END RSA PRIVATE KEY-----"
 
 ###.
 ###'

@@ -53,6 +53,7 @@ IM数据库服务
 + 家目录下有download文件夹，所有文件会下载到该文件夹下
 + 数据库用户名密码是ejabberd:123456，服务地址是：127.0.0.1
 + redis密码是：123456，服务地址是：127.0.0.1
++ 数据库初始化sql在doc目录下
 
 ```
 依赖包
@@ -82,7 +83,7 @@ sudo systemctl start postgresql-11
 修改posgres的密码
 sudo passwd postgres
 su - postgres
-psql -f /home/monkboy/download/qtalk_pg10_2018_11_26.sql
+psql -f /home/monkboy/download/qtalk.sql
 psql
 # ALTER USER ejabberd WITH PASSWORD '123456'
 
@@ -174,7 +175,8 @@ ejabberd配置
 
 安装qtalk_cowboy
 # cd /home/foo/download
-# cd qtalk_cowboy/
+# cp -rf qtalk_cowboy /home/work/
+# cd /home/work/qtalk_cowboy/
 # ./rebar compile
 
 启动qtalk_cowboy
