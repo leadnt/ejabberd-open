@@ -9,6 +9,41 @@ ejaberd不支持的功能。
 -   消息处理：通过ejabberd和kafka相连接，实现了消息的路由和订阅发布，可以对消息添加更丰富的处理逻辑。
 -   &#x2026;
 
+## QTalk模块
+
+### QTalk主要包含：
+
++ [ejabberd](https://github.com/qunarcorp/ejabberd-open)
+
+IM核心组件，负责维持与客户端的长连接和消息路由
+
++ [or](https://github.com/qunarcorp/or_open)
+
+IM负载均衡组件，负责验证客户端身份，以及转发http请求到对应的后台服务
++ [im_http_service](https://github.com/qunarcorp/im_http_service_open)
+
+IM HTTP接口服务，负责IM相关数据的查询、设置以及历史消息同步
+
++ [qtalk_cowboy](https://github.com/qunarcorp/qtalk_cowboy_open)(后面所有的接口都会迁移到im_http_service，这个服务会废弃)
+
+IM HTTP接口服务，负责IM相关数据的查询、设置以及历史消息同步，后面会全部迁移到im_http_service上
+
++ [qfproxy](https://github.com/qunarcorp/qfproxy_open)
+
+IM文件服务，负责文件的上传和下载
+
++ redis
+
+IM缓存服务
+
++ postgresql
+
+IM数据库服务
+
+### QTalk各个模块之间的关系
+
+(image/arch.png)
+
 ## 安装
 
 ```
