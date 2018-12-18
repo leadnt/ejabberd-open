@@ -175,7 +175,8 @@ ejabberd配置
 
 安装qtalk_cowboy
 # cd /home/foo/download
-# cd qtalk_cowboy/
+# cp -rf qtalk_cowboy /home/work/
+# cd /home/work/qtalk_cowboy/
 # ./rebar compile
 
 启动qtalk_cowboy
