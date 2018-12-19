@@ -54,6 +54,8 @@ IM数据库服务
 + 数据库用户名密码是ejabberd:123456，服务地址是：127.0.0.1
 + redis密码是：123456，服务地址是：127.0.0.1
 + 数据库初始化sql在doc目录下
++ 保证可访问主机的：5222、5202、8080端口
++ IM服务的域名是:qtalk.test.org
 
 ```
 依赖包
@@ -73,7 +75,7 @@ requirepass 123456
 sudo redis-server /etc/redis.conf
  
 数据库安装
-sudo yum install https://download.postgresql.org/pub/repos/yum/11/redhat/rhel-7-x86_64/pgdg-centos11-11-2.noarch.rpm
+sudo yum -y install https://download.postgresql.org/pub/repos/yum/11/redhat/rhel-7-x86_64/pgdg-centos11-11-2.noarch.rpm
 sudo yum -y install postgresql11 postgresql11-server postgresql11-libs
  
 sudo /usr/pgsql-11/bin/postgresql-11-setup initdb
@@ -85,7 +87,12 @@ sudo passwd postgres
 su - postgres
 psql -f /home/monkboy/download/qtalk.sql
 psql
-# ALTER USER ejabberd WITH PASSWORD '123456'
+# ALTER USER ejabberd WITH PASSWORD '123456';
+
+插入测试账号：
+# insert into host_info (host, description, host_admin) values ('qtalk.test.org', 'qtalk.test.org', 'test');
+# insert into host_users (host_id, user_id, user_name, department, dep1, pinyin, frozen_flag, version, user_type, hire_flag, gender, password, initialpwd, ps_deptid) values ('1', 'test', '测试账号', '/机器人', '机器人', 'test', '0', '1', 'U', '1', '1', '1234567890', '1', 'qtalk');
+# insert into vcard_version (username, version, profile_version, gender, host, url) values ('test', '1', '1', '1', 'qtalk.test.org', 'https://qt.qunar.com/file/v2/download/avatar/1af5bc967f8535a4af19eca10dc95cf1.png');
 
 修改配置文件
 [monkboy@monk download]$ sudo vim /var/lib/pgsql/11/data/pg_hba.conf
@@ -100,6 +107,13 @@ host    all             all             ::1/128                 md5
 新建安装目录
 # sudo mkdir /home/work
 # sudo chown foo:foo /home/work
+
+下载源码
+# cd /home/foo/download
+# git clone https://github.com/memacs/ejabberd-open.git
+# git clone https://github.com/memacs/or_open.git
+# git clone https://github.com/memacs/qtalk_cowboy_open.git
+
 
 openresry安装
 # cd /home/foo/download
@@ -145,7 +159,7 @@ or操作
  
 ----------------------------------
 # User specific environment and startup programs
-ERLANGPATH=/home/work/erlang
+ERLANGPATH=/home/work/erlang1903
 PATH=$PATH:$HOME/bin:$ERLANGPATH/bin
 ----------------------------------
  
@@ -159,7 +173,7 @@ PATH=$PATH:$HOME/bin:$ERLANGPATH/bin
 # make install
 # cp ejabberd.yml.qunar /home/work/ejabberd/etc/ejabberd/ejabberd.yml
 # cp ejabberdctl.cfg.qunar /home/work/ejabberd/etc/ejabberd/ejabberdctl.cfg
-# vim /home/work/ejabberd/etc/ejabberd/ejabberd.tml
+# vim /home/work/ejabberd/etc/ejabberd/ejabberd.yml
 # vim /home/work/ejabberd/etc/ejabberd/ejabberdctl.cfg
 
 ejabberd配置
@@ -175,7 +189,7 @@ ejabberd配置
 
 安装qtalk_cowboy
 # cd /home/foo/download
-# cp -rf qtalk_cowboy /home/work/
+# cp -rf qtalk_cowboy_open /home/work/qtalk_cowboy
 # cd /home/work/qtalk_cowboy/
 # ./rebar compile
 
@@ -183,6 +197,67 @@ ejabberd配置
 # ./bin/ejb_http_server start
 停止qtalk_cowboy
 # ./bin/ejb_http_server stop
+
+
+安装java服务
+# cd /home/foo/download/
+# cp -rf or_open/deps/tomcat /home/work/
+# cd tomcat
+
+放置war
++ 将im_http_service.war放到/home/work/tomcat/im_http_service/webapps下面
++ 将qfproxy.war放到/home/work/tomcat/qfproxy/webapps下面
+
+
+修改导航地址：
+#  vim /home/work/tomcat/im_http_service/webapps/im_http_service/WEB-INF/classes/nav.json
+
+-
+{
+  "Login": {
+    "loginType": "password"
+  },
+  "baseaddess": {
+    "simpleapiurl": "http://ip:8080",
+    "fileurl": "http://ip:8080",
+    "domain": "qtalk.test.org",
+    "javaurl": "http://ip:8080/package",
+    "protobufPcPort": 5202,
+    "xmpp": "ip",
+    "xmppport": 5222,
+    "protobufPort": 5202,
+    "pubkey": "rsa_public_key",
+    "xmppmport": 5222,
+    "httpurl": "http://ip:8080/newapi",
+    "apiurl": "http://ip:8080/api"
+  },
+  "imConfig": {
+    "RsaEncodeType": 1,
+    "showOrganizational": true
+  },
+  "version": 10005
+}
+-
+将ip替换成对应机器的ip地址
+
+
+修改文件服务器配置
+
+# vim /home/work/tomcat/qfproxy/webapps/qfproxy/WEB-INF/classes/qfproxy.properties
+
+project.host.and.port=http://ip:8080
+
+将ip替换成对应机器的ip地址
+
+启动java服务
+# cd /home/work/tomcat/im_http_service
+# ./tomcat.sh start
+
+
+# cd /home/work/tomcat/qfproxy
+# mkdir upload //新建文件存储的目录
+# ./tomcat.sh start
+
 ```
 
 ## 配置文件修改
