@@ -258,6 +258,8 @@ project.host.and.port=http://ip:8080
 # mkdir upload //新建文件存储的目录
 # ./tomcat.sh start
 
+
+客户端配置导航地址：http://ip:8080/newapi/nck/qtalk_nav.qunar，使用账号：test，密码：1234567890登陆
 ```
 
 ## 配置文件修改
