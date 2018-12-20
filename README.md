@@ -266,30 +266,6 @@ project.host.and.port=http://ip:8080
 
 参考文档[setting.md](doc/setting.md)
 
-## 集群
-
--   在主节点执行以下命令
-
-```
-cd /home/q/ejabberd1609
-sudo ./sbin/ejabberdctl start
-```
--   在从节点执行以下命令
-
-```
-cd /home/q/ejabberd1609
-sudo rm -rf var/lib/ejabberd/*
-sudo ./sbin/ejabberdctl start
-sudo ./sbin/ejabberdctl debug
-> easy_cluster:join('ejabberd@%HOST%')
-...
-CTRL-C
-sudo ./sbin/ejabberdctl start
-sudo ./sbin/ejabberdctl debug
-> nodes()
-# 如果可以看到其它节点，就证明集群成功了
-```
-
 ## 开发指南
 
 - [developer guide](https://docs.ejabberd.im/developer/guide/)
