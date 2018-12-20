@@ -2819,6 +2819,7 @@ add_message_to_history(Time,Nick, FromJID, Packet, StateData) ->
     BPacket = fxml:element_to_binary(New_Packet),
     XML = ejabberd_sql:escape(BPacket),
 
+    send_push_message(Time, Nick, FromJID, New_Packet, StateData),
     do_insert_msg(StateData, FromNick, FromJID, XML, Size, Msg_Id, MSecTime),
     StateData.
 
@@ -6120,3 +6121,47 @@ do_get_muc_room_users(StateData) ->
     _ ->
         []
     end.
+
+%% 将所有消息通过接口发送个第三方服务
+send_push_message(Time,Nick, FromJID, Packet, StateData) ->
+    PushUrl = ejabberd_config:get_option(push_url, fun(Url)-> Url end, undefined),
+    case PushUrl of
+        undefined -> ok;
+        _ -> do_send_push_message(Time,Nick, FromJID, Packet, StateData, PushUrl)
+    end.
+
+do_send_push_message(Time,Nick, FromJID, Packet, StateData, PushUrl) ->
+    #xmlel{attrs = Attrs} = Packet,
+
+    UL = do_get_muc_room_users(StateData),
+    RealFrom = fxml:get_attr_s(<<"sendjid">>, Attrs),
+    BPacket = fxml:element_to_binary(Packet),
+
+    MSecTime = case fxml:get_attr_s(<<"msec_times">>, Attrs) of
+        <<"">> -> qtalk_public:get_exact_timestamp();
+        T -> binary_to_integer(T)
+    end,
+
+    Msg_Id  = case catch fxml:get_tag_attr_s(<<"id">>,fxml:get_subtag(Packet,<<"body">>)) of 
+        <<"">> -> list_to_binary(integer_to_list(Time));
+        ID -> ID
+    end,
+
+    FromNick = case Nick of
+        <<"">> -> qtalk_public:get_nick(FromJID#jid.luser,FromJID#jid.luser);
+        _ -> Nick
+    end,
+
+    MsgContent = rfc4627:encode({obj, [{"type", <<"groupchat">>},
+                                       {"muc_room_name", StateData#state.room},
+                                       {"room_host", StateData#state.host},
+                                       {"host", FromJID#jid.lserver},
+                                       {"nick", FromNick},
+                                       {"packet", BPacket},
+                                       {"have_subject", <<"1">>},
+                                       {"size", 0},
+                                       {"create_time", MSecTime},
+                                       {"msg_id", Msg_Id},
+                                       {"realfrom", RealFrom},
+                                       {"userlist", UL}]}),
+    http_client:http_post(PushUrl, [{"connection", "close"}], "application/json", MsgContent, [], []).

@@ -880,7 +880,7 @@ insert_chat_msg(_Server,From, To,FromHost,ToHost, Msg,_Body,ID,InsertTime) ->
         LServer = get_server(FromHost,ToHost),
         Time = qtalk_public:pg2timestamp(InsertTime),
 
-        send_message_to_push(From, To, FromHost, ToHost, Msg, ID, InsertTime),
+        send_push_message(From, To, FromHost, ToHost, Msg, ID, InsertTime),
         insert_msg2db(LServer, LFrom,LTo,FromHost,ToHost,LID,LBody,Time)
     end.
 
@@ -1182,14 +1182,15 @@ get_server(From_host,To_host) ->
     true -> lists:nth(1,ejabberd_config:get_myhosts())
     end.
 
-send_message_to_push(From, To, FromHost, ToHost, Msg, ID, InsertTime) ->
+%% 将所有消息通过接口发送个第三方服务
+send_push_message(From, To, FromHost, ToHost, Msg, ID, InsertTime) ->
     PushUrl = ejabberd_config:get_option(push_url, fun(Url)-> Url end, undefined),
     case PushUrl of
         undefined -> ok;
-        _ -> do_send_message_to_push(From, To, FromHost, ToHost, Msg, ID, InsertTime, PushUrl)
+        _ -> do_send_push_message(From, To, FromHost, ToHost, Msg, ID, InsertTime, PushUrl)
     end.
 
-do_send_message_to_push(From, To, FromHost, ToHost, Msg, ID, InsertTime, PushUrl) ->
+do_send_push_message(From, To, FromHost, ToHost, Msg, ID, InsertTime, PushUrl) ->
     case jlib:nodeprep(From) of
     error -> {error, invalid_jid};
     LUser ->
@@ -1206,7 +1207,8 @@ do_send_message_to_push(From, To, FromHost, ToHost, Msg, ID, InsertTime, PushUrl
                  proplists:get_value("usrType", ChannelIdJson, ?USRTYPE)}
         end,
     
-        MsgContent = rfc4627:encode({obj, [{"m_from", LUser},
+        MsgContent = rfc4627:encode({obj, [{"type", <<"chat">>},
+                                           {"m_from", LUser},
                                            {"from_host", FromHost},
                                            {"m_to", To},
                                            {"to_host", ToHost},
