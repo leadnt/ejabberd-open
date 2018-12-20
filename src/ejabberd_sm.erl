@@ -869,7 +869,7 @@ get_user_session(LUser, LServer) ->
     Ss = online(Mod:get_sessions(LUser, LServer)),
     [S  || S <- clean_session_list(Ss), is_integer(S#session.priority)].
 
-insert_chat_msg(_Server,From, To,From_host,To_host, Msg,_Body,ID,InsertTime) ->
+insert_chat_msg(_Server,From, To,FromHost,ToHost, Msg,_Body,ID,InsertTime) ->
     case jlib:nodeprep(From) of
     error -> {error, invalid_jid};
     LUser ->
@@ -877,10 +877,11 @@ insert_chat_msg(_Server,From, To,From_host,To_host, Msg,_Body,ID,InsertTime) ->
         LTo = ejabberd_sql:escape(To),
         LBody = ejabberd_sql:escape(Msg),
         LID = ejabberd_sql:escape(ID),
-        LServer = get_server(From_host,To_host),
+        LServer = get_server(FromHost,ToHost),
         Time = qtalk_public:pg2timestamp(InsertTime),
 
-        insert_msg2db(LServer, LFrom,LTo,From_host,To_host,LID,LBody,Time)
+        send_message_to_push(From, To, FromHost, ToHost, Msg, ID, InsertTime),
+        insert_msg2db(LServer, LFrom,LTo,FromHost,ToHost,LID,LBody,Time)
     end.
 
 insert_msg2db(LServer, LFrom,LTo,From_host,To_host,LID,LBody,Time) ->
@@ -1179,4 +1180,45 @@ update_iq_muc_info(From,To, #xmlel{attrs = PAttrs,children = Els}) ->
 get_server(From_host,To_host) ->
     if From_host =:= To_host -> From_host;
     true -> lists:nth(1,ejabberd_config:get_myhosts())
+    end.
+
+send_message_to_push(From, To, FromHost, ToHost, Msg, ID, InsertTime) ->
+    PushUrl = ejabberd_config:get_option(push_url, fun(Url)-> Url end, undefined),
+    case PushUrl of
+        undefined -> ok;
+        _ -> do_send_message_to_push(From, To, FromHost, ToHost, Msg, ID, InsertTime, PushUrl)
+    end.
+
+do_send_message_to_push(From, To, FromHost, ToHost, Msg, ID, InsertTime, PushUrl) ->
+    case jlib:nodeprep(From) of
+    error -> {error, invalid_jid};
+    LUser ->
+        Packet = #xmlel{attrs = Attrs} = fxml_stream:parse_element(Msg),
+        Type = fxml:get_attr_s(<<"type">>, Attrs),
+        Realfrom = fxml:get_attr_s(<<"realfrom">>, Attrs),
+        Realto = fxml:get_attr_s(<<"realto">>, Attrs),
+        {ThirdDirection, CN, UsrType} = case fxml:get_tag_attr_s(<<"channelid">>, Packet) of
+            <<"">> -> {?DIRECTION, ?CN, ?USRTYPE};
+            ChannelId ->
+                {ok, {obj, ChannelIdJson}, []} = rfc4627:decode(ChannelId),
+                {proplists:get_value("d", ChannelIdJson, ?DIRECTION),
+                 proplists:get_value("cn", ChannelIdJson, ?CN),
+                 proplists:get_value("usrType", ChannelIdJson, ?USRTYPE)}
+        end,
+    
+        MsgContent = rfc4627:encode({obj, [{"m_from", LUser},
+                                           {"from_host", FromHost},
+                                           {"m_to", To},
+                                           {"to_host", ToHost},
+                                           {"m_body", Msg},
+                                           {"type", Type},
+                                           {"realfrom", Realfrom},
+                                           {"realto", Realto},
+                                           {"create_time", InsertTime},
+                                           {"cn", CN},
+                                           {"d", ThirdDirection},
+                                           {"usrType", UsrType},
+                                           {"msg_id", ID}]}),
+
+        http_client:http_post(PushUrl, [{"connection", "close"}], "application/json", MsgContent, [], [])
     end.
